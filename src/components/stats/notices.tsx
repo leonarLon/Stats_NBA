@@ -36,9 +36,16 @@ export function Notice({ children, className }: { children: ReactNode; className
 
 export function PartialBadge({ className }: { className?: string }) {
   return (
-    <Badge className={cn('border-secondary/60 text-secondary', className)} title="A fonte enviou o box score sem alguns jogadores">
+    // Laranja de alerta (não usa o Badge, para a cor não depender da ordem das classes no CSS)
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border border-warning/60 bg-warning/10 px-2.5 py-0.5 text-xs font-semibold text-warning',
+        className,
+      )}
+      title="A fonte enviou o box score sem alguns jogadores"
+    >
       Box score parcial
-    </Badge>
+    </span>
   );
 }
 

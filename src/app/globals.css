@@ -5,32 +5,35 @@
  * Contrastes verificados em tests/unit/contrast.test.ts (WCAG AA, mínimo 4,5:1).
  */
 :root {
-  --bg: #0b1220;
-  --surface: #131c2e;
-  --surface-2: #1a2540;
-  --border: #26324d;
-  --text: #e6eaf2;
-  --muted: #94a3b8;
-  --primary: #f26b1d;
-  --on-primary: #0b1220;
-  --secondary: #d9a066;
+  --bg: #09090b;
+  --surface: #131217;
+  --surface-2: #1d1b24;
+  --border: #2e2a3a;
+  --text: #f2f1f5;
+  --muted: #a6a1b4;
+  --primary: #ff3b4f;
+  --on-primary: #09090b;
+  --secondary: #a78bfa;
   --positive: #4ade80;
-  --negative: #f87171;
+  --negative: #fb7185;
+  /* Alerta (laranja): marca box score parcial */
+  --warning: #f97316;
   color-scheme: dark;
 }
 
 [data-theme="light"] {
-  --bg: #f7f8fa;
+  --bg: #f8f7fa;
   --surface: #ffffff;
-  --surface-2: #eef1f5;
-  --border: #d0d5dd;
-  --text: #101828;
-  --muted: #475467;
-  --primary: #c2410c;
+  --surface-2: #efedf3;
+  --border: #d9d5e0;
+  --text: #121016;
+  --muted: #57526a;
+  --primary: #c8102e;
   --on-primary: #ffffff;
-  --secondary: #8a5a2b;
+  --secondary: #6d28d9;
   --positive: #067647;
   --negative: #b42318;
+  --warning: #9a3412;
   color-scheme: light;
 }
 
@@ -46,6 +49,7 @@
   --color-secondary: var(--secondary);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
+  --color-warning: var(--warning);
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-display: var(--font-barlow), var(--font-inter), system-ui, sans-serif;
 }

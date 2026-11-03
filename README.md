@@ -1,4 +1,4 @@
-# Tabelinha
+# STATS ALL IN
 
 Estatísticas de jogadores, times e partidas da NBA em português, atualizadas automaticamente após cada jogo, com fórmulas públicas e acesso por cadastro (teste grátis de 3 dias; assinatura preparada, mas desligada).
 
@@ -14,7 +14,7 @@ Estatísticas de jogadores, times e partidas da NBA em português, atualizadas a
 | Landing page e design system | Implementados |
 | Ingestão de dados reais | Implementada; migration 0004 aplicada e primeira ingestão real feita em 03/11/2026. Falta cadastrar os secrets no GitHub para o agendamento |
 | Páginas de estatística | Jogos, box score, classificação, jogadores (ranking e busca), jogador, times e time. Exigem login com acesso ativo (Fase 6); sem Supabase, abrem em modo demonstração |
-| Cadastro, login e teste grátis | Pendente (Fase 6) |
+| Cadastro, login e teste grátis | Implementados (cadastro com confirmação de e-mail, login, nova senha, teste de 3 dias por botão, exclusão de conta). Falta configurar as URLs no Supabase e validar com e-mail real |
 | Cobrança (Mercado Pago) | Preparada como contrato; desligada |
 
 ## Tecnologias
@@ -71,6 +71,10 @@ Os testes não usam rede nem credenciais: o banco roda em memória (PGlite) e os
 | `/jogadores?ordem=pts&q=nome&todos=1` | Ranking por estatística, busca sem acento, filtro de qualificados |
 | `/jogadores/[id]` | Médias da temporada e jogo a jogo |
 | `/times` e `/times/[sigla]` | Médias e ratings; elenco, últimos e próximos jogos |
+| `/entrar`, `/cadastro`, `/recuperar-senha`, `/redefinir-senha` | Conta (públicas) |
+| `/conta` | Situação do acesso, teste grátis, sair, excluir conta |
+| `/planos` | Teste grátis e assinatura (em breve) |
+| `/termos`, `/privacidade` | Textos legais |
 
 ## Deploy
 
@@ -90,6 +94,8 @@ As migrations em `supabase/migrations/` já foram aplicadas. Arquivos aplicados 
 
 - Atualização 15 a 45 minutos após o fim do jogo (não é tempo real).
 - A fonte gratuita não informa quem foi titular, então essa informação não aparece.
+- O SMTP padrão do Supabase só entrega e-mails para membros da equipe do projeto e tem cota baixa. Antes de abrir o cadastro ao público, é preciso configurar um SMTP próprio.
+- Quem exclui a conta e se cadastra de novo com o mesmo e-mail ganha outro teste grátis.
 - Com a pasta do projeto no OneDrive, a pasta `.next` às vezes fica bloqueada e o build falha com `EPERM`. Basta apagar `.next` e rodar de novo.
 - Cota gratuita da API-NBA (100 requisições/dia) limita a carga de temporadas antigas (~20 dias por temporada).
 - Estatísticas avançadas são estimativas a partir do box score.

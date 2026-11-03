@@ -138,7 +138,7 @@ async function Players({ sort, query, all }: { sort: PlayerSortKey; query: strin
                     {r.name}
                   </Link>
                   {r.teamPartialGames > 0 && (
-                    <sup className="ml-0.5 text-secondary" title="Algum jogo do time tem box score parcial">
+                    <sup className="ml-0.5 text-warning" title="Algum jogo do time tem box score parcial">
                       *
                     </sup>
                   )}
@@ -157,7 +157,7 @@ async function Players({ sort, query, all }: { sort: PlayerSortKey; query: strin
 
       <Notice>
         Qualificados: pelo menos 70% dos jogos do time; nos percentuais, também um mínimo de tentativas por jogo (5 arremessos,
-        2 bolas de três, 1,5 lance livre). São critérios do Tabelinha, não os oficiais da NBA. * O time do jogador tem jogo
+        2 bolas de três, 1,5 lance livre). São critérios do STATS ALL IN, não os oficiais da NBA. * O time do jogador tem jogo
         com box score parcial na fonte; os totais podem estar abaixo do real.
       </Notice>
     </div>

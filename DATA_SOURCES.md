@@ -1,4 +1,4 @@
-# Fontes de dados — Tabelinha
+# Fontes de dados — STATS ALL IN
 
 Última revisão: 02/11/2026.
 
@@ -20,7 +20,7 @@ Regra do projeto: **nenhuma API esportiva paga**. Só usamos fontes gratuitas e 
 
 ### 1.1. Termos da API-Sports (versão de 21/05/2025, enviada pelo usuário em 02/11/2026)
 
-| Ponto | O que os termos dizem | Impacto no Tabelinha |
+| Ponto | O que os termos dizem | Impacto no STATS ALL IN |
 |---|---|---|
 | Uso permitido | "Fornecemos dados para você criar projetos como aplicativos, sites, jogos de fantasy etc." | ✅ Um site de estatísticas é um uso previsto |
 | Revenda | Proibido vender os dados diretamente ou revendê-los a terceiros | ✅ Não revendemos dados nem oferecemos API/exportação em massa. Não incluir botão de "baixar CSV de toda a temporada" |

@@ -32,6 +32,7 @@ const PAIRS: Array<[fg: string, bg: string]> = [
   ['secondary', 'bg'], ['secondary', 'surface'],
   ['positive', 'bg'], ['positive', 'surface'],
   ['negative', 'bg'], ['negative', 'surface'],
+  ['warning', 'bg'], ['warning', 'surface'], ['warning', 'surface-2'],
 ];
 
 describe.each([

@@ -56,7 +56,7 @@ Para não colocar no topo um jogador com 2 jogos, os rankings de média exigem u
 
 `min_games = ceil(0,70 × jogos já disputados pelo time do jogador na temporada)`
 
-Os rankings de percentual exigem também um volume mínimo de tentativas por jogo (FG%: 5 FGA/jogo; 3P%: 2 3PA/jogo; FT%: 1,5 FTA/jogo). Esses critérios são do Tabelinha e não seguem necessariamente os critérios oficiais da NBA; a interface informa isso.
+Os rankings de percentual exigem também um volume mínimo de tentativas por jogo (FG%: 5 FGA/jogo; 3P%: 2 3PA/jogo; FT%: 1,5 FTA/jogo). Esses critérios são do STATS ALL IN e não seguem necessariamente os critérios oficiais da NBA; a interface informa isso.
 
 ## 6. Indicadores avançados calculados a partir do box score
 

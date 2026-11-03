@@ -21,24 +21,27 @@ const PRINCIPLES = [
 export default function HomePage() {
   return (
     <>
-      <section className="mx-auto max-w-6xl px-4 pb-16 pt-14 sm:pt-20">
-        <Badge>Temporada 2026-27</Badge>
-        <h1 className="mt-4 max-w-3xl font-display text-5xl font-bold leading-[1.05] tracking-wide sm:text-6xl">
-          Estatística de basquete, <span className="text-primary">explicada.</span>
-        </h1>
-        <p className="mt-5 max-w-2xl text-lg text-muted">
-          Jogadores, times, partidas e rankings da NBA em português, com cada número calculado de forma transparente e
-          atualizado depois de cada jogo.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <ButtonLink href="/#planos" size="lg">
-            Teste grátis por 3 dias
-          </ButtonLink>
-          <ButtonLink href="/#recursos" size="lg" variant="secondary">
-            Ver recursos
-          </ButtonLink>
-        </div>
-      </section>
+      {/* Brilho decorativo atrás do título (roxo e vermelho, bem suave) */}
+      <div className="bg-[radial-gradient(60%_80%_at_15%_0%,rgba(167,139,250,0.16),transparent_70%),radial-gradient(40%_60%_at_85%_10%,rgba(255,59,79,0.10),transparent_70%)]">
+        <section className="mx-auto max-w-6xl px-4 pb-16 pt-14 sm:pt-20">
+          <Badge>Temporada 2026-27</Badge>
+          <h1 className="mt-4 max-w-3xl font-display text-5xl font-bold leading-[1.05] tracking-wide sm:text-6xl">
+            Estatística de basquete, <span className="bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">explicada.</span>
+          </h1>
+          <p className="mt-5 max-w-2xl text-lg text-muted">
+            Jogadores, times, partidas e rankings da NBA em português, com cada número calculado de forma transparente e
+            atualizado depois de cada jogo.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <ButtonLink href="/cadastro" size="lg">
+              Teste grátis por 3 dias
+            </ButtonLink>
+            <ButtonLink href="/#recursos" size="lg" variant="secondary">
+              Ver recursos
+            </ButtonLink>
+          </div>
+        </section>
+      </div>
 
       <section id="recursos" aria-labelledby="recursos-titulo" className="border-t border-border bg-surface/40">
         <div className="mx-auto max-w-6xl px-4 py-14">
@@ -86,7 +89,9 @@ export default function HomePage() {
                 R$ 0 <span className="text-base font-normal text-muted">por 3 dias</span>
               </p>
               <p className="text-muted">Acesso completo, sem cartão de crédito. Uma vez por conta.</p>
-              <Badge className="self-start">Cadastro em breve</Badge>
+              <ButtonLink href="/cadastro" className="mt-auto self-start">
+                Criar conta
+              </ButtonLink>
             </Card>
             <Card className="flex flex-col gap-3">
               <CardTitle>Mensal</CardTitle>

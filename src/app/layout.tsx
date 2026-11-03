@@ -14,8 +14,8 @@ const barlow = Barlow_Condensed({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Tabelinha — Estatística de basquete, explicada',
-    template: '%s · Tabelinha',
+    default: 'STATS ALL IN — Estatística de basquete, explicada',
+    template: '%s · STATS ALL IN',
   },
   description:
     'Estatísticas de jogadores, times e partidas da NBA em português, atualizadas automaticamente após cada jogo.',

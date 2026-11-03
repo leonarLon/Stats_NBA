@@ -1,18 +1,18 @@
-# Marca — Tabelinha
+# Marca — STATS ALL IN
 
 ## Nome
 
-**Tabelinha**
+**STATS ALL IN** (escrito sempre em maiúsculas; no logo, "ALL IN" em vermelho)
 
-- No basquete brasileiro, *tabela* é a peça onde a bola bate antes da cesta. Em português, *tabela* também é onde ficam as estatísticas.
-- *Tabelinha* é a jogada de passe e devolução entre dois jogadores, que lembra o comparador de jogadores lado a lado.
-- O nome é curto, brasileiro, fácil de lembrar e não usa "NBA" nem nomes de times.
+- Troca de nome decidida pelo usuário em 03/11/2026; o nome anterior era "Tabelinha".
+- *All in*: ir com tudo. Combina com a proposta de reunir todas as estatísticas num lugar só.
+- Não usa "NBA" nem nomes de times.
 
-**Antes de registrar:** pesquisar marca no INPI (classes 9, 35, 41 e 42) e verificar a disponibilidade do domínio. Essa checagem não foi feita.
+**Antes de registrar:** pesquisar marca no INPI (classes 9, 35, 41 e 42) e verificar a disponibilidade do domínio. Essa checagem não foi feita. Atenção: "all in" também é termo de pôquer e de apostas; o site não deve sugerir ligação com apostas.
 
 **Slogan:** "Estatística de basquete, explicada."
 
-**Aviso obrigatório no rodapé:** "O Tabelinha é um projeto independente, sem afiliação com a NBA ou com qualquer equipe. Dados fornecidos por API-NBA e balldontlie."
+**Aviso obrigatório no rodapé:** "O STATS ALL IN é um projeto independente, sem afiliação com a NBA ou com qualquer equipe. Dados fornecidos por API-NBA e balldontlie."
 
 ## O que não usar
 
@@ -26,20 +26,24 @@ Tema escuro por padrão (uso noturno, horário dos jogos no Brasil), com tema cl
 
 | Token | Escuro | Claro | Uso |
 |---|---|---|---|
-| `bg` | `#0B1220` | `#F7F8FA` | Fundo |
-| `surface` | `#131C2E` | `#FFFFFF` | Cartões, tabelas |
-| `text` | `#E6EAF2` | `#101828` | Texto principal |
-| `muted` | `#94A3B8` | `#475467` | Texto secundário |
-| `primary` (bola) | `#F26B1D` | `#C2410C` | Ações, destaques |
-| `secondary` (piso) | `#D9A066` | `#8A5A2B` | Detalhes, ilustrações |
+| `bg` | `#09090B` | `#F8F7FA` | Fundo (preto) |
+| `surface` / `surface-2` | `#131217` / `#1D1B24` | `#FFFFFF` / `#EFEDF3` | Cartões e tabelas, com leve tom roxo |
+| `border` | `#2E2A3A` | `#D9D5E0` | Bordas |
+| `text` | `#F2F1F5` | `#121016` | Texto principal |
+| `muted` | `#A6A1B4` | `#57526A` | Texto secundário |
+| `primary` (vermelho) | `#FF3B4F` | `#C8102E` | Ações, destaques, "ALL IN" do logo |
+| `secondary` (roxo) | `#A78BFA` | `#6D28D9` | Detalhes, avisos, segunda seta do logo |
+| `positive` / `negative` | `#4ADE80` / `#FB7185` | `#067647` / `#B42318` | Vitória/derrota, saldo |
 
-As cores dos gráficos, os contrastes (WCAG AA) e os estados positivo/negativo serão validados na Fase 3, junto com o design system. Positivo e negativo nunca são indicados só por cor; sempre têm sinal (+/−) ou ícone.
+No tema escuro, o texto dos botões vermelhos é preto (contraste 5,7:1); branco sobre esse vermelho daria só 3,5:1. O título da landing usa um degradê do vermelho ao roxo.
+
+Todos os pares de texto e fundo passam de 4,5:1 (WCAG AA), verificados em `tests/unit/contrast.test.ts`. Positivo e negativo nunca são indicados só por cor; sempre têm sinal (+/−) ou ícone.
 
 **Tipografia** (Google Fonts, licença OFL):
 - Títulos: **Barlow Condensed** (semibold), lembra placar de ginásio.
 - Texto e tabelas: **Inter**, com números tabulares (`font-variant-numeric: tabular-nums`) para alinhar colunas de estatísticas.
 
-**Logo (conceito):** duas setas curvas, uma laranja e uma bege, que formam juntas o contorno de uma bola, representando o passe e a devolução. Será desenhado em SVG na Fase 3.
+**Logo:** duas setas curvas, uma vermelha e uma roxa, que formam juntas o contorno de uma bola (`src/components/brand/logo.tsx` e `src/app/icon.svg`).
 
 ## Tom de voz
 

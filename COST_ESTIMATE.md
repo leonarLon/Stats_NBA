@@ -1,4 +1,4 @@
-# Estimativa de custos — Tabelinha
+# Estimativa de custos — STATS ALL IN
 
 Preços e limites consultados em 02/11/2026 nas páginas oficiais, salvo indicação. Confirme antes de usar em decisões.
 

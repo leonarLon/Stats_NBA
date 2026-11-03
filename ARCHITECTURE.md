@@ -1,4 +1,4 @@
-# Arquitetura — Tabelinha
+# Arquitetura — STATS ALL IN
 
 Última revisão: 02/11/2026. Status: **proposta para aprovação (Fase 2)**. Nada desta arquitetura foi criado no Supabase ainda.
 
@@ -56,6 +56,10 @@ src/
   app/                    # rotas Next.js (somente UI e composição)
     page.tsx              # landing (pública)
     (stats)/              # jogos, classificacao, jogadores, times (acesso verificado nas consultas)
+    (conta)/              # entrar, cadastro, recuperar-senha, redefinir-senha, conta
+    (legal)/              # termos, privacidade
+    planos/               # teste grátis e assinatura (em breve)
+    auth/confirm/         # destino dos links de e-mail (confirmação e nova senha)
     api/                  # route handlers (revalidate; billing e webhooks na Fase 6)
   components/             # componentes visuais, sem regra de negócio
   server/                 # tudo que roda só no servidor
@@ -159,7 +163,11 @@ A aplicação **não** depende só do RLS: as consultas de estatística (`src/se
 ## 7. Autenticação
 
 - Supabase Auth com e-mail e senha, **verificação de e-mail obrigatória**, recuperação de senha por e-mail.
-- Sessão em cookies httpOnly via `@supabase/ssr`; o `proxy.ts` (antigo middleware) só renova o token. **A decisão de acesso é feita nas páginas e rotas, no servidor**, com `supabase.auth.getUser()` (valida o token no servidor do Auth; nunca confia apenas no cookie).
+- Sessão em cookies httpOnly via `@supabase/ssr`; o `src/proxy.ts` (antigo middleware) só renova o token. **A decisão de acesso é feita no servidor, perto dos dados**, com `supabase.auth.getClaims()`, que valida a assinatura do token (nunca confia apenas no cookie).
+- Formulários com Server Actions (`src/server/auth/actions.ts`): validação Zod no servidor, mensagens em português, nenhuma resposta revela se um e-mail está cadastrado, destino pós-login restrito a caminhos internos (`safeNextPath`).
+- Links de e-mail chegam em `/auth/confirm`, que aceita `?code=` (modelo padrão do Supabase, mesmo navegador) e `?token_hash=&type=` (modelo ajustado, qualquer navegador).
+- **Teste grátis:** iniciado por botão em `/planos` ou `/conta`, depois do login, pela função `start_trial` (uma vez por conta). Assim os 3 dias começam quando a pessoa quer usar, não no cadastro.
+- **Exclusão de conta** em `/conta`: apaga o usuário do Auth; perfil, assinaturas e pagamentos saem em cascata.
 - Logout invalida a sessão no Supabase e limpa os cookies.
 - O SMTP padrão do Supabase Free tem cota baixa de e-mails e serve só para testes. Antes de abrir o site ao público, será preciso configurar um SMTP próprio (há opções gratuitas com cota limitada; a decidir na Fase 6).
 
@@ -249,3 +257,4 @@ Tudo será testado no **ambiente de testes (sandbox)** do Mercado Pago, sem dinh
 | 9 | Box scores incompletos gravados como `partial` | Descartar jogos incompletos; medir antes de decidir | Decisão do usuário (03/11/2026) após teste real mostrar jogadores faltando na API-NBA gratuita |
 | 10 | Estatísticas lidas com a chave secreta em cache compartilhado, depois de `requireAccess()` | Ler com a sessão do usuário (RLS) a cada visita | Os dados são iguais para todos; um cache por usuário multiplicaria as consultas ao banco gratuito. Segue o padrão de camada de acesso a dados da documentação do Next.js |
 | 11 | Modo demonstração com dados fictícios quando o Supabase não está configurado | Exigir credenciais para rodar o site | Desenvolvimento e testes E2E sem banco nem login; os dados são inventados e a página avisa |
+| 12 | Teste grátis começa por botão, não no cadastro | Iniciar automaticamente na confirmação do e-mail | Quem se cadastra para conhecer o projeto escolhe quando gastar os 3 dias |

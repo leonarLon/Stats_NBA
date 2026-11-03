@@ -56,6 +56,11 @@ export function fmtStartTime(iso: string): string {
   return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TIME_ZONE }).format(new Date(iso));
 }
 
+/** Data e hora em Brasília: "06/11/2026, 14:30". */
+export function fmtDateTime(date: Date): string {
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: TIME_ZONE }).format(date);
+}
+
 /** Sequência: 3 → "V3", −2 → "D2". */
 export function fmtStreak(streak: number): string {
   if (streak === 0) return DASH;

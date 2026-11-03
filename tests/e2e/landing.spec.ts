@@ -17,7 +17,7 @@ async function expectNoA11yViolations(page: Page) {
 test.describe('landing page', () => {
   test('mostra a proposta, os recursos e os planos', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/Tabelinha/);
+    await expect(page).toHaveTitle(/STATS ALL IN/);
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Estatística de basquete');
     await expect(page.getByRole('heading', { name: 'Recursos' })).toBeVisible();
     await expect(page.getByText('R$ 19,90')).toBeVisible();
@@ -44,11 +44,11 @@ test.describe('landing page', () => {
     await expect(page).toHaveURL(/#conteudo$/);
   });
 
-  test('links da navegação levam às seções', async ({ page }) => {
+  test('link "Planos" da navegação abre a página de planos', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Planos' }).click();
-    await expect(page).toHaveURL(/#planos$/);
-    await expect(page.getByRole('heading', { name: 'Planos' })).toBeInViewport();
+    await expect(page).toHaveURL(/\/planos$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Planos' })).toBeVisible();
   });
 
   test('envia cabeçalhos de segurança', async ({ request }) => {
