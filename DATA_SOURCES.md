@@ -81,6 +81,17 @@ Feito com as chaves do projeto, gastando 6 requisições da cota da API-NBA.
 3. A validação de minutos precisa de tolerância maior (minutos inteiros arredondados).
 4. O vínculo entre jogos das duas fontes usa times + horário de início, nunca só a data.
 
+### 1.4. Primeira ingestão real (03/11/2026)
+
+Feita com o worker, depois de aplicada a migration 0004.
+
+| Etapa | Resultado | Requisições |
+|---|---|---|
+| Calendário (02/11 a 10/11) | 30 times, 68 jogos, 15 encerrados, classificação recalculada | balldontlie: 2 |
+| Box score de 2 jogos de 02/11 | Ambos `partial`. Placar e totais dos times corretos. Faltam jogadores: OKC @ CLE com 9 e 8 jogadores (CLE soma 83 de 112 pontos); DET @ CHA com 12 e 11 jogadores (somam 120 de 124 e 81 de 91 pontos) | API-NBA: 5 (1 busca por data + 2 por jogo) |
+
+Isso confirma o padrão da seção 1.3. O jogo fica `partial` até alguma reconciliação (24h, 72h e 7 dias) trazer o box score completo.
+
 ## 2. Como as fontes se dividem
 
 | Tarefa | Fonte | Custo diário estimado |
@@ -103,7 +114,8 @@ Feito com as chaves do projeto, gastando 6 requisições da cota da API-NBA.
 
 - **Agendador:** GitHub Actions (cron), rodando o worker de ingestão em Node. A Vercel Hobby só permite cron diário, por isso não serve aqui.
 - **Calendário:** uma vez por dia (12:00 UTC), sincroniza os jogos dos próximos 7 dias via balldontlie.
-- **Janela de jogos:** a cada **15 minutos** entre 23:00 e 08:00 UTC (20:00 às 05:00 em Brasília). Fora da janela, o job sai sem chamar nenhuma API. Tudo configurável por variável de ambiente.
+- **Janela de jogos:** a cada **15 minutos** entre 22:00 e 08:59 UTC (19:00 às 05:59 em Brasília), em [.github/workflows/ingest.yml](.github/workflows/ingest.yml). Sem jogos pendentes, o ciclo não chama nenhuma API.
+- **Custo:** o repositório é público, então os minutos do GitHub Actions são ilimitados. Atenção: o GitHub **desativa crons de repositórios públicos após 60 dias sem commits**; se isso acontecer, basta reativar na aba Actions.
 - **Consulta inteligente:** só consulta o status de jogos cujo horário previsto de término (início + 2h15) já passou e que ainda não estão finalizados.
 
 ### Atraso esperado

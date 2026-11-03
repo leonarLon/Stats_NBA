@@ -1,16 +1,14 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { PGlite } from '@electric-sql/pglite';
-import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { subscriptionGrantsAccess, type SubscriptionStatus } from '@/server/auth/access';
+import { createTestDb } from '../support/pglite';
 
 /**
  * Executa as migrations num Postgres em memória (PGlite) com stubs mínimos do Supabase
- * (roles, schema auth, auth.uid(), search_path) e verifica RLS, regras de acesso e restrições.
+ * e verifica RLS, regras de acesso e restrições.
  * Não substitui um teste no Supabase real, mas pega erros de SQL e de política antes do deploy.
  */
 
-const MIGRATIONS = new URL('../../supabase/migrations/', import.meta.url);
 const U1 = '00000000-0000-0000-0000-000000000001';
 const U2 = '00000000-0000-0000-0000-000000000002';
 
@@ -38,26 +36,7 @@ const fails = async (fn: () => Promise<unknown>) => {
 };
 
 beforeAll(async () => {
-  db = new PGlite({ extensions: { pg_trgm } });
-  await db.exec(`
-    create role anon nologin;
-    create role authenticated nologin;
-    create role service_role nologin bypassrls;
-    create schema extensions;
-    create schema auth;
-    set search_path = "$user", public, extensions;
-    create table auth.users (id uuid primary key, email text);
-    create function auth.uid() returns uuid language sql stable as
-      $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-    grant usage on schema auth, extensions, public to anon, authenticated, service_role;
-    grant execute on function auth.uid() to anon, authenticated;
-    alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-    alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
-  `);
-
-  for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) {
-    await db.exec(readFileSync(new URL(file, MIGRATIONS), 'utf8'));
-  }
+  db = await createTestDb();
 
   await db.exec(`
     insert into auth.users (id, email) values ('${U1}', 'a@x.com'), ('${U2}', 'b@x.com');

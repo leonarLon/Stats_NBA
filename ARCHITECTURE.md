@@ -101,7 +101,9 @@ tests/                    # fixtures, unit, integration, db, e2e
 
 **Reconciliação:** só para jogos `partial` (os `complete` não gastam cota). `game_sync_state.reconcile_stage` avança 24h → 72h → 7 dias após o fim do jogo. Ao reprocessar, se o hash mudou, os passos 7–10 rodam de novo. Depois da 3ª tentativa, o jogo fica `partial` em definitivo.
 
-**Concorrência:** cada job pega um *advisory lock* do Postgres (`pg_try_advisory_lock`) por tipo de job. Duas execuções simultâneas do cron não processam o mesmo jogo.
+**Gravação:** toda escrita da ingestão passa por funções SQL ([supabase/migrations/20261103000004_ingestion.sql](supabase/migrations/20261103000004_ingestion.sql)) chamadas via RPC com a chave secreta. Cada função é atômica, e nenhuma pode ser executada por `anon`/`authenticated`. Os testes rodam o pipeline inteiro contra essas mesmas funções num Postgres em memória.
+
+**Concorrência:** trava com prazo na tabela `job_locks` (15 min). Duas execuções simultâneas não processam o mesmo jogo; uma trava esquecida expira sozinha. O workflow também usa `concurrency` do GitHub Actions.
 
 **Retentativas:** erros de rede e 5xx: até 3 tentativas com backoff exponencial dentro do job; depois, `game_sync_state.next_check_at` é reagendado (15 min, 30 min, 1h, 2h, 6h…) até 72h.
 

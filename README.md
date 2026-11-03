@@ -12,7 +12,7 @@ Estatísticas de jogadores, times e partidas da NBA em português, atualizadas a
 | Modelo de dados (migrations SQL) | Aplicado no Supabase em 03/11/2026; RLS verificado |
 | Fundação (config, erros, logs, cliente HTTP com limite por minuto, fórmulas, validações, contratos) | Implementada e testada |
 | Landing page e design system | Implementados |
-| Ingestão de dados reais | Pendente (Fase 4): chaves das APIs e banco já configurados e testados |
+| Ingestão de dados reais | Implementada; migration 0004 aplicada e primeira ingestão real feita em 03/11/2026. Falta cadastrar os secrets no GitHub para o agendamento |
 | Páginas de estatística | Pendente (Fase 5) |
 | Cadastro, login e teste grátis | Pendente (Fase 6) |
 | Cobrança (Mercado Pago) | Preparada como contrato; desligada |
@@ -55,6 +55,9 @@ Todas estão documentadas em [.env.example](.env.example). Regras:
 | `npm test` | Testes unitários e de banco (Vitest + PGlite) |
 | `npm run test:e2e` | Testes E2E em 390, 768 e 1440 px (Playwright + axe). Na primeira vez: `npx playwright install chromium` |
 | `npm run check` | lint + typecheck + testes |
+| `npm run ingest:local -- schedule` | Calendário de ontem até +7 dias (exige `DATA_PROVIDER_MODE=live`) |
+| `npm run ingest:local -- tick` | Status dos jogos + box scores pendentes |
+| `npm run ingest:local -- backfill AAAA-MM-DD AAAA-MM-DD` | Carga histórica; continua de onde parou a cada execução |
 
 Os testes não usam rede nem credenciais: o banco roda em memória (PGlite) e os dados esportivos vêm do `FixtureProvider`.
 

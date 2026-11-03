@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "npm run lint && npm run typecheck && npm run test"
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "ingest": "tsx scripts/ingest.ts",
+    "ingest:local": "tsx --env-file=.env.local scripts/ingest.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -1,0 +1,76 @@
+name: Ingestão de dados
+
+# Horários em UTC. Jogos da NBA: ~23:00–07:00 UTC (20:00–04:00 em Brasília).
+on:
+  schedule:
+    - cron: '0 12 * * *'            # calendário diário (ontem até +7 dias)
+    - cron: '*/15 22-23,0-8 * * *'  # status + box scores, a cada 15 min na janela de jogos
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'schedule, tick ou backfill'
+        required: true
+        default: tick
+        type: choice
+        options: [tick, schedule, backfill]
+      from:
+        description: 'backfill: data inicial (AAAA-MM-DD)'
+        required: false
+      to:
+        description: 'backfill: data final (AAAA-MM-DD)'
+        required: false
+
+# Nunca duas execuções ao mesmo tempo (o banco também tem trava própria)
+concurrency:
+  group: ingestion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATA_PROVIDER_MODE: live
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      APISPORTS_KEY: ${{ secrets.APISPORTS_KEY }}
+      BALLDONTLIE_KEY: ${{ secrets.BALLDONTLIE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Escolher comando
+        id: cmd
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_COMMAND: ${{ inputs.command }}
+          INPUT_FROM: ${{ inputs.from }}
+          INPUT_TO: ${{ inputs.to }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ "$INPUT_COMMAND" = "backfill" ]; then
+              echo "args=backfill $INPUT_FROM $INPUT_TO" >> "$GITHUB_OUTPUT"
+            else
+              echo "args=$INPUT_COMMAND" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ "$SCHEDULE" = "0 12 * * *" ]; then
+            echo "args=schedule" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=tick" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Argumentos via variável de ambiente: nunca interpolados como código no shell.
+      # O script valida as datas (AAAA-MM-DD) antes de usar.
+      - name: Executar
+        env:
+          ARGS: ${{ steps.cmd.outputs.args }}
+        run: npm run ingest -- $ARGS
