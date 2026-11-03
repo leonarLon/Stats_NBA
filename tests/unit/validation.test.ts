@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GameScore, PlayerGameLine } from '@/server/domain/types';
-import { validateGameBoxScore, validatePlayerLine } from '@/server/domain/validation';
+import { classifyBoxScore, teamMinutesToleranceSeconds, validatePlayerLine } from '@/server/domain/validation';
 import { FixtureProvider } from '@/server/providers/fixture/fixture-provider';
 
 const provider = new FixtureProvider();
@@ -22,27 +22,58 @@ async function fixtureGame(): Promise<{ score: GameScore; lines: PlayerGameLine[
 
 const rules = (issues: { rule: string }[]) => issues.map((i) => i.rule);
 
-describe('validação de jogo', () => {
-  it('aceita o jogo de fixture consistente', async () => {
+describe('classificação do box score', () => {
+  it('jogo de fixture consistente é completo', async () => {
     const { score, lines } = await fixtureGame();
-    expect(validateGameBoxScore(score, lines)).toEqual([]);
+    expect(classifyBoxScore(score, lines)).toEqual({ status: 'complete', errors: [], gaps: [] });
   });
 
-  it('detecta soma de pontos diferente do placar', async () => {
+  it('jogadores faltando na fonte → parcial (caso real LAC @ GSW)', async () => {
     const { score, lines } = await fixtureGame();
-    expect(rules(validateGameBoxScore({ ...score, homeScore: score.homeScore + 2 }, lines))).toContain('score');
-  });
-
-  it('detecta minutos do time incompatíveis', async () => {
-    const { score, lines } = await fixtureGame();
-    lines[0] = { ...lines[0], secondsPlayed: lines[0].secondsPlayed - 5 * 60 };
-    expect(rules(validateGameBoxScore(score, lines))).toContain('team_minutes');
-  });
-
-  it('detecta jogador repetido e time ausente', async () => {
-    const { score, lines } = await fixtureGame();
+    // Remove dois jogadores do time da casa: soma de pontos e minutos fica abaixo do total
     const home = lines.filter((l) => l.teamExternalId === score.homeTeamExternalId);
-    expect(rules(validateGameBoxScore(score, [...home, home[0]]))).toEqual(expect.arrayContaining(['duplicate_player', 'team_missing']));
+    const result = classifyBoxScore(score, lines.filter((l) => l !== home[0] && l !== home[1]));
+    expect(result.status).toBe('partial');
+    expect(rules(result.gaps)).toEqual(expect.arrayContaining(['score', 'team_minutes']));
+    expect(result.errors).toEqual([]);
+  });
+
+  it('time inteiro sem linhas → parcial', async () => {
+    const { score, lines } = await fixtureGame();
+    const result = classifyBoxScore(score, lines.filter((l) => l.teamExternalId === score.homeTeamExternalId));
+    expect(result.status).toBe('partial');
+    expect(rules(result.gaps)).toContain('team_missing');
+  });
+
+  it('soma de pontos acima do placar → inválido', async () => {
+    const { score, lines } = await fixtureGame();
+    const result = classifyBoxScore({ ...score, homeScore: score.homeScore - 2 }, lines);
+    expect(result.status).toBe('invalid');
+    expect(rules(result.errors)).toContain('score');
+  });
+
+  it('minutos acima do possível → inválido', async () => {
+    const { score, lines } = await fixtureGame();
+    // 5 titulares com 48 min + um reserva com 10 min = 250 min
+    const extra = { ...lines[0], playerExternalId: 'fx-extra', secondsPlayed: 10 * 60, pts: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0 };
+    const result = classifyBoxScore(score, [...lines, extra]);
+    expect(result.status).toBe('invalid');
+    expect(rules(result.errors)).toContain('team_minutes');
+  });
+
+  it('linha inconsistente ou jogador repetido → inválido, mesmo com lacunas', async () => {
+    const { score, lines } = await fixtureGame();
+    expect(classifyBoxScore(score, [...lines, lines[0]]).status).toBe('invalid');
+    const broken = [{ ...lines[0], pts: lines[0].pts + 1 }, ...lines.slice(1)];
+    expect(classifyBoxScore(score, broken).status).toBe('invalid');
+  });
+
+  it('tolera arredondamento de minutos inteiros (caso real LAL: 239 de 240 min, 11 jogadores)', async () => {
+    const { score, lines } = await fixtureGame();
+    const rounded = lines.map((l, i) => (i === 0 ? { ...l, secondsPlayed: l.secondsPlayed - 60 } : l));
+    expect(classifyBoxScore(score, rounded).status).toBe('complete');
+    expect(teamMinutesToleranceSeconds(11)).toBe(330);
+    expect(teamMinutesToleranceSeconds(1)).toBe(60);
   });
 });
 

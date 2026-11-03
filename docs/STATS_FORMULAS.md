@@ -1,11 +1,12 @@
 # Fórmulas e regras de cálculo
 
-Todas as estatísticas agregadas são calculadas pelo backend a partir de `player_game_stats`, que é a única fonte da verdade. Nenhum número exibido vem pronto da fonte sem passar por essas regras.
+Todas as estatísticas agregadas são calculadas pelo backend: as de jogador a partir de `player_game_stats` e as de time a partir de `team_game_stats` (totais de time da fonte). Nenhum número exibido vem pronto da fonte sem passar por estas regras.
 
 ## 1. Escopo dos dados
 
 - Agregados são sempre separados por **temporada** e **tipo de temporada** (`regular`, `play_in`, `playoffs`, `cup`, `preseason`). Pré-temporada nunca entra em médias da temporada regular.
-- Só entram nos agregados jogos com `games.status = 'final'` e `stats_status = 'complete'`.
+- Só entram nos agregados jogos com `games.status = 'final'` e `stats_status` igual a `complete` ou `partial` (seção 2.1). Jogos `invalid` ou `pending` nunca entram.
+- Totais de time (pontos, arremessos, rebotes etc.) vêm das estatísticas de time da fonte, não da soma dos jogadores.
 - Jogador transferido no meio da temporada: o agregado da temporada soma todos os times; o detalhe por time vem da consulta por jogo.
 
 ## 2. Validações por linha (jogador × jogo)
@@ -20,12 +21,17 @@ Uma linha é rejeitada (e o jogo marcado `invalid`) se falhar em:
 | Rebotes | `reb = oreb + dreb` (quando ambos existem) |
 | Minutos | `0 ≤ seconds_played ≤ 48·60 + 5·60·n_prorrogações` |
 
-Validações por jogo:
+### 2.1. Classificação do jogo
 
-| Regra | Fórmula |
-|---|---|
-| Placar | Σ `pts` dos jogadores do time = placar do time |
-| Minutos do time | Σ minutos dos jogadores ≈ 240 + 25·n_prorrogações (tolerância de 1 min, por arredondamento da fonte) |
+A fonte gratuita (API-NBA) às vezes entrega o box score de jogadores **incompleto** (teste real em 03/11/2026: 3 de 4 times com jogadores faltando). Cada jogo encerrado é classificado:
+
+| Classificação | Quando | O que acontece |
+|---|---|---|
+| `complete` | Linhas válidas, Σ `pts` dos jogadores = placar e Σ minutos ≈ 240 + 25·n_prorrogações | Entra em todos os agregados |
+| `partial` | Linhas válidas, mas Σ `pts` **abaixo** do placar, Σ minutos **abaixo** do esperado, ou um time sem linhas | Linhas gravadas e usadas nos agregados; jogo e temporadas afetadas marcados como incompletos; nova tentativa após 24h, 72h e 7 dias |
+| `invalid` | Alguma linha falha nas regras acima, jogador repetido, jogador de outro time, ou Σ `pts`/minutos **acima** do total | Nada do jogo entra nos agregados; alerta em `sync_logs` |
+
+**Tolerância de minutos:** a API-NBA informa minutos inteiros, então cada linha pode errar até 30 s. Tolerância = máx(60 s, nº de linhas do time × 30 s).
 
 ## 3. Médias e percentuais
 
@@ -79,3 +85,4 @@ Diferença entre a média dos últimos N jogos (padrão 10) e a média da tempor
 
 - Enquanto a temporada estiver em andamento, as médias são exibidas como "parciais, até <data>".
 - Se houver jogos do time ainda com `stats_status` diferente de `complete`, `player_season_stats.is_complete = false` e a interface mostra o aviso "faltam N jogos para processar".
+- `player_season_stats.team_partial_games` conta os jogos do time do jogador com box score incompleto na fonte. A página do jogador mostra: "N jogos do time têm box score incompleto na fonte; os totais deste jogador podem estar abaixo do real". As **médias por jogo** continuam corretas para os jogos em que o jogador aparece.

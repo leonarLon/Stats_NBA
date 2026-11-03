@@ -1,5 +1,5 @@
 -- Tabelinha — 0001: extensões, utilidades e domínio esportivo
--- PARA REVISÃO. Não executar no Supabase sem autorização explícita.
+-- Aplicada no Supabase em 03/11/2026 (SQL Editor), com autorização do usuário. Não editar: mudanças vão em uma nova migration.
 
 create extension if not exists pg_trgm with schema extensions;
 
@@ -24,7 +24,8 @@ $$;
 
 create type public.game_status as enum ('scheduled', 'in_progress', 'final', 'postponed', 'canceled');
 create type public.season_type as enum ('preseason', 'regular', 'play_in', 'playoffs', 'cup');
-create type public.stats_status as enum ('pending', 'complete', 'invalid');
+-- partial: box score de jogadores incompleto na fonte (totais do time continuam corretos)
+create type public.stats_status as enum ('pending', 'complete', 'partial', 'invalid');
 create type public.entity_type as enum ('team', 'player', 'game', 'season');
 
 -- ---------------------------------------------------------------------------
@@ -147,8 +148,9 @@ create table public.game_sync_state (
   game_id bigint primary key references public.games (id) on delete cascade,
   attempts integer not null default 0,
   next_check_at timestamptz,
-  reconcile_at timestamptz,                -- finalized_at + 24h
-  reconciled_at timestamptz,
+  reconcile_stage smallint not null default 0 check (reconcile_stage between 0 and 3), -- 0: nenhuma; 1: 24h; 2: 72h; 3: 7 dias
+  reconcile_at timestamptz,                -- próxima reconciliação (24h, 72h, 7 dias após o fim)
+  reconciled_at timestamptz,               -- preenchido quando não há mais reconciliações a fazer
   last_error text,
   updated_at timestamptz not null default now()
 );
@@ -164,7 +166,8 @@ create trigger game_sync_state_updated_at before update on public.game_sync_stat
 -- ---------------------------------------------------------------------------
 -- Estatísticas por jogo
 -- Validações de consistência (pontos = 2·FGM + 3PM + FTM, soma = placar etc.)
--- são feitas na aplicação, que marca o jogo como 'invalid' em vez de abortar.
+-- são feitas na aplicação, que classifica o jogo como complete/partial/invalid.
+-- Totais do time vêm do endpoint de estatísticas de time da fonte, não da soma dos jogadores.
 -- ---------------------------------------------------------------------------
 
 create table public.player_game_stats (
@@ -249,7 +252,8 @@ create table public.player_season_stats (
   double_doubles smallint not null default 0,
   triple_doubles smallint not null default 0,
   pts_stddev numeric(6, 2),                -- para o índice de consistência
-  is_complete boolean not null default false,
+  team_partial_games smallint not null default 0, -- jogos do time com box score de jogadores incompleto
+  is_complete boolean not null default false,  -- false se houver jogo pendente ou parcial do time
   computed_at timestamptz not null default now(),
   primary key (player_id, season_id, season_type)
 );
@@ -303,7 +307,7 @@ with (security_invoker = true)
 as
 select
   s.player_id, s.season_id, s.season_type, s.last_team_id,
-  s.games_played, s.games_started, s.is_complete,
+  s.games_played, s.games_started, s.is_complete, s.team_partial_games,
   round(s.seconds_played::numeric / nullif(s.games_played, 0) / 60, 1) as min_pg,
   round(s.pts::numeric / nullif(s.games_played, 0), 1) as pts_pg,
   round(s.reb::numeric / nullif(s.games_played, 0), 1) as reb_pg,

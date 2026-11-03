@@ -50,15 +50,52 @@ export function validatePlayerLine(line: PlayerGameLine, overtimePeriods: number
   return issues;
 }
 
-/** Tolerância na soma dos minutos do time (arredondamento das fontes). */
-const TEAM_MINUTES_TOLERANCE_SECONDS = 60;
+/**
+ * Tolerância na soma dos minutos do time. Algumas fontes arredondam para minutos inteiros
+ * (API-NBA), então cada linha pode errar até 30 s; nunca menos que 1 minuto no total.
+ */
+export function teamMinutesToleranceSeconds(lineCount: number): number {
+  return Math.max(60, lineCount * 30);
+}
 
-/** Regras por jogo (docs/STATS_FORMULAS.md, seção 2). */
-export function validateGameBoxScore(score: GameScore, lines: PlayerGameLine[]): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
+export type BoxScoreClassification = 'complete' | 'partial' | 'invalid';
 
-  for (const line of lines) issues.push(...validatePlayerLine(line, score.overtimePeriods));
+export interface BoxScoreResult {
+  status: BoxScoreClassification;
+  /** Problemas que tornam o jogo inválido (não entra em nenhum agregado). */
+  errors: ValidationIssue[];
+  /** Lacunas da fonte: o jogo é gravado como parcial. */
+  gaps: ValidationIssue[];
+}
 
+/**
+ * Classifica o box score de jogadores de um jogo encerrado (docs/STATS_FORMULAS.md, seção 2).
+ *
+ * - invalid: alguma linha é inconsistente, há jogador repetido ou de outro time,
+ *   ou a soma de pontos/minutos dos jogadores PASSA do total do time.
+ * - partial: linhas consistentes, mas faltam jogadores (soma abaixo do placar ou dos minutos).
+ * - complete: soma dos pontos = placar e minutos dentro da tolerância.
+ */
+export function classifyBoxScore(score: GameScore, lines: PlayerGameLine[]): BoxScoreResult {
+  const errors: ValidationIssue[] = [];
+  const gaps: ValidationIssue[] = [];
+
+  for (const line of lines) errors.push(...validatePlayerLine(line, score.overtimePeriods));
+
+  const unknownTeam = lines.find((l) => l.teamExternalId !== score.homeTeamExternalId && l.teamExternalId !== score.awayTeamExternalId);
+  if (unknownTeam) {
+    errors.push({ rule: 'team_unknown', message: 'linha de jogador com time que não está no jogo', playerExternalId: unknownTeam.playerExternalId });
+  }
+
+  const seen = new Set<string>();
+  for (const line of lines) {
+    if (seen.has(line.playerExternalId)) {
+      errors.push({ rule: 'duplicate_player', message: 'jogador repetido no box score', playerExternalId: line.playerExternalId });
+    }
+    seen.add(line.playerExternalId);
+  }
+
+  const expectedSeconds = 5 * (REGULATION_SECONDS + OVERTIME_SECONDS * score.overtimePeriods);
   const teams = [
     { id: score.homeTeamExternalId, score: score.homeScore },
     { id: score.awayTeamExternalId, score: score.awayScore },
@@ -67,42 +104,27 @@ export function validateGameBoxScore(score: GameScore, lines: PlayerGameLine[]):
   for (const team of teams) {
     const teamLines = lines.filter((l) => l.teamExternalId === team.id);
     if (teamLines.length === 0) {
-      issues.push({ rule: 'team_missing', message: 'time sem linhas de jogadores', teamExternalId: team.id });
+      gaps.push({ rule: 'team_missing', message: 'time sem linhas de jogadores na fonte', teamExternalId: team.id });
       continue;
     }
 
     const pts = teamLines.reduce((acc, l) => acc + l.pts, 0);
-    if (pts !== team.score) {
-      issues.push({
-        rule: 'score',
-        message: `soma dos pontos dos jogadores (${pts}) difere do placar (${team.score})`,
-        teamExternalId: team.id,
-      });
+    if (pts > team.score) {
+      errors.push({ rule: 'score', message: `soma dos pontos dos jogadores (${pts}) passa do placar (${team.score})`, teamExternalId: team.id });
+    } else if (pts < team.score) {
+      gaps.push({ rule: 'score', message: `soma dos pontos dos jogadores (${pts}) abaixo do placar (${team.score})`, teamExternalId: team.id });
     }
 
     const seconds = teamLines.reduce((acc, l) => acc + l.secondsPlayed, 0);
-    const expected = 5 * (REGULATION_SECONDS + OVERTIME_SECONDS * score.overtimePeriods);
-    if (Math.abs(seconds - expected) > TEAM_MINUTES_TOLERANCE_SECONDS) {
-      issues.push({
-        rule: 'team_minutes',
-        message: `soma dos minutos (${(seconds / 60).toFixed(1)}) difere do esperado (${expected / 60})`,
-        teamExternalId: team.id,
-      });
+    const tolerance = teamMinutesToleranceSeconds(teamLines.length);
+    const message = `soma dos minutos (${(seconds / 60).toFixed(1)}) difere do esperado (${expectedSeconds / 60})`;
+    if (seconds - expectedSeconds > tolerance) {
+      errors.push({ rule: 'team_minutes', message, teamExternalId: team.id });
+    } else if (expectedSeconds - seconds > tolerance) {
+      gaps.push({ rule: 'team_minutes', message, teamExternalId: team.id });
     }
   }
 
-  const unknownTeam = lines.find((l) => l.teamExternalId !== score.homeTeamExternalId && l.teamExternalId !== score.awayTeamExternalId);
-  if (unknownTeam) {
-    issues.push({ rule: 'team_unknown', message: 'linha de jogador com time que não está no jogo', playerExternalId: unknownTeam.playerExternalId });
-  }
-
-  const seen = new Set<string>();
-  for (const line of lines) {
-    if (seen.has(line.playerExternalId)) {
-      issues.push({ rule: 'duplicate_player', message: 'jogador repetido no box score', playerExternalId: line.playerExternalId });
-    }
-    seen.add(line.playerExternalId);
-  }
-
-  return issues;
+  const status: BoxScoreClassification = errors.length > 0 ? 'invalid' : gaps.length > 0 ? 'partial' : 'complete';
+  return { status, errors, gaps };
 }

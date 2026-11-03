@@ -127,6 +127,20 @@ describe('acesso aos dados esportivos', () => {
   });
 });
 
+describe('jogos parciais', () => {
+  it('aceita stats_status partial e expõe team_partial_games na view', async () => {
+    await db.exec(`update public.games set stats_status = 'partial' where id = 1`);
+    await db.exec(`update public.player_season_stats set team_partial_games = 1 where player_id = 1`);
+    const [row] = await rows('authenticated', U1, 'select team_partial_games, is_complete from public.player_season_averages');
+    expect(row).toMatchObject({ team_partial_games: 1, is_complete: false });
+  });
+
+  it('etapa de reconciliação limitada a 0..3', async () => {
+    await db.exec(`insert into public.game_sync_state (game_id, reconcile_stage) values (1, 3)`);
+    await expect(db.exec(`update public.game_sync_state set reconcile_stage = 4 where game_id = 1`)).rejects.toThrow();
+  });
+});
+
 describe('restrições estatísticas', () => {
   it('rejeita FGM > FGA', async () => {
     await expect(

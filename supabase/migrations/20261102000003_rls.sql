@@ -1,5 +1,5 @@
 -- Tabelinha — 0003: Row Level Security
--- PARA REVISÃO. Não executar no Supabase sem autorização explícita.
+-- Aplicada no Supabase em 03/11/2026 (SQL Editor), com autorização do usuário. Não editar: mudanças vão em uma nova migration.
 --
 -- Regras:
 --  * Dados esportivos: leitura só para usuários com acesso ativo (teste ou assinatura).

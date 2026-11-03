@@ -13,8 +13,8 @@ export function getSupabaseAdmin(): SupabaseClient {
   }
   if (!client) {
     const { NEXT_PUBLIC_SUPABASE_URL } = getSupabasePublicConfig();
-    const { SUPABASE_SERVICE_ROLE_KEY } = getSupabaseAdminConfig();
-    client = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    const { SUPABASE_SECRET_KEY } = getSupabaseAdminConfig();
+    client = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
   }

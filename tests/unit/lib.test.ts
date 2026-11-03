@@ -28,7 +28,7 @@ describe('config', () => {
 
   it('detecta Supabase não configurado', () => {
     expect(isSupabaseConfigured({})).toBe(false);
-    expect(isSupabaseConfigured({ NEXT_PUBLIC_SUPABASE_URL: 'https://x.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'a'.repeat(40) })).toBe(true);
+    expect(isSupabaseConfigured({ NEXT_PUBLIC_SUPABASE_URL: 'https://x.supabase.co', NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'a'.repeat(40) })).toBe(true);
   });
 });
 

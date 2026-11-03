@@ -90,16 +90,16 @@ tests/                    # fixtures, unit, integration, db, e2e
 1. **Calendário** (diário): `ScheduleProvider.listGames(7 dias)` → upsert em `games` (`status = scheduled`) e `external_refs`.
 2. **Status** (a cada 15 min na janela): para jogos com término previsto já passado e `status <> final`, consulta o status.
 3. **Finalizado detectado:** `status = final`, cria a entrada em `game_sync_state` com `next_check_at = now()`.
-4. **Box score:** `BoxScoreProvider.getPlayerGameStats()` (consome cota da API-NBA, registrada em `provider_quota_usage`).
+4. **Box score:** `getPlayerGameStats()` e `getTeamGameStats()` da API-NBA (2 requisições por jogo, registradas em `provider_quota_usage`).
 5. **Normalização:** conversão para `PlayerGameLine` (minutos para segundos, IDs externos para internos, criando jogadores novos).
-6. **Validação:** regras de [docs/STATS_FORMULAS.md](docs/STATS_FORMULAS.md). Falhou → `stats_status = invalid` e log.
+6. **Classificação:** `classifyBoxScore()` ([docs/STATS_FORMULAS.md](docs/STATS_FORMULAS.md), seção 2.1) → `complete`, `partial` (jogadores faltando na fonte) ou `invalid` (dados contraditórios, não entra em agregado).
 7. **Gravação idempotente** em uma transação: `hash(payload normalizado)` igual ao já gravado → nada muda. Diferente → `delete + insert` das linhas do jogo, `version + 1`.
-8. **Totais do time** (`team_game_stats`) calculados a partir das linhas dos jogadores e conferidos com o placar.
+8. **Totais do time** (`team_game_stats`) gravados a partir das estatísticas de time da fonte, que vieram corretas no teste real, e conferidos com o placar.
 9. **Agregados:** recálculo de `player_season_stats` e `team_season_stats` **apenas** dos jogadores e times do jogo, e de `standings` da temporada.
 10. **Frontend:** as consultas usam `'use cache'` com `cacheLife('minutes')` e `cacheTag`; o worker chama `/api/revalidate` (protegida por segredo), que executa `revalidateTag(tag, 'max')`.
 11. **Histórico:** `sync_jobs` (uma linha por execução) e `sync_logs` (eventos). A sincronização só termina como `succeeded` se o número de linhas gravadas for igual ao recebido e as validações por jogo passarem.
 
-**Reconciliação:** `game_sync_state.reconcile_at = finalized_at + 24h`. Ao reprocessar, se o hash mudou, os passos 7–10 rodam de novo.
+**Reconciliação:** só para jogos `partial` (os `complete` não gastam cota). `game_sync_state.reconcile_stage` avança 24h → 72h → 7 dias após o fim do jogo. Ao reprocessar, se o hash mudou, os passos 7–10 rodam de novo. Depois da 3ª tentativa, o jogo fica `partial` em definitivo.
 
 **Concorrência:** cada job pega um *advisory lock* do Postgres (`pg_try_advisory_lock`) por tipo de job. Duas execuções simultâneas do cron não processam o mesmo jogo.
 
@@ -109,7 +109,7 @@ tests/                    # fixtures, unit, integration, db, e2e
 
 ## 6. Modelo de dados
 
-SQL completo em [supabase/migrations/](supabase/migrations/) — **para revisão, não executado**.
+SQL completo em [supabase/migrations/](supabase/migrations/) — **aplicado no Supabase em 03/11/2026**.
 
 ### 6.1. Esportes
 
@@ -168,7 +168,7 @@ A aplicação **não** depende só do RLS: todas as rotas restritas chamam `requ
 
 O acesso funciona por **cadastro + teste de 3 dias**, com a mesma regra de acesso do banco. A cobrança fica **desligada** por variável de ambiente (`BILLING_ENABLED=false`): a página de planos mostra o preço provisório como "em breve" e não abre checkout.
 
-Alternativa mais simples, se preferir: liberar o acesso a qualquer usuário cadastrado enquanto não houver cobrança. Isso exige só trocar a regra em `user_has_access()`. Decisão pendente (ver seção 12).
+O teste de 3 dias é mantido como funcionalidade do produto (decisão 8, seção 12).
 
 ### 8.2. Planos (provisórios)
 
@@ -215,8 +215,8 @@ Tudo será testado no **ambiente de testes (sandbox)** do Mercado Pago, sem dinh
 
 ## 10. Segurança
 
-- Segredos (`SUPABASE_SERVICE_ROLE_KEY`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `APISPORTS_KEY`, `BALLDONTLIE_KEY`, `REVALIDATE_SECRET`) só em variáveis **sem** prefixo `NEXT_PUBLIC_`, lidas apenas em `src/server/lib/config.ts`, validadas com Zod na inicialização.
-- No navegador: apenas `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` (públicas por design; protegidas pelo RLS).
+- Segredos (`SUPABASE_SECRET_KEY`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `APISPORTS_KEY`, `BALLDONTLIE_KEY`, `REVALIDATE_SECRET`) só em variáveis **sem** prefixo `NEXT_PUBLIC_`, lidas apenas em `src/server/lib/config.ts`, validadas com Zod na inicialização.
+- No navegador: apenas `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (públicas por design; protegidas pelo RLS).
 - Entradas validadas com Zod em todas as rotas e parâmetros de URL.
 - Rate limiting nas rotas de auth (proteção nativa do Supabase Auth) e nas rotas de billing.
 - Webhooks: assinatura HMAC, idempotência e consulta de confirmação à API.
@@ -244,6 +244,5 @@ Tudo será testado no **ambiente de testes (sandbox)** do Mercado Pago, sem dinh
 | 6 | Sem funcionalidades de IA | Gemini gratuito (dados usados para treino), Claude (pago) | Decisão do usuário em 02/11/2026 |
 | 7 | Cobrança preparada mas desligada | Remover billing | O projeto pode virar comercial; a estrutura fica pronta e testada em sandbox |
 
-### Pendente
-
-- Enquanto não houver cobrança: manter o acesso por teste de 3 dias, ou liberar para qualquer usuário cadastrado?
+| 8 | Teste grátis de 3 dias mantido mesmo sem cobrança | Liberar acesso a qualquer cadastrado | Decisão do usuário (03/11/2026): o teste é funcionalidade do produto e serve para demonstrações a interessados no projeto |
+| 9 | Box scores incompletos gravados como `partial` | Descartar jogos incompletos; medir antes de decidir | Decisão do usuário (03/11/2026) após teste real mostrar jogadores faltando na API-NBA gratuita |

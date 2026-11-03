@@ -9,10 +9,10 @@ Estatísticas de jogadores, times e partidas da NBA em português, atualizadas a
 | Parte | Status |
 |---|---|
 | Documentação de arquitetura, fontes de dados e custos | Pronta |
-| Modelo de dados (migrations SQL) | Pronto para revisão, **não executado no Supabase** |
+| Modelo de dados (migrations SQL) | Aplicado no Supabase em 03/11/2026; RLS verificado |
 | Fundação (config, erros, logs, cliente HTTP com limite por minuto, fórmulas, validações, contratos) | Implementada e testada |
 | Landing page e design system | Implementados |
-| Ingestão de dados reais | Pendente (Fase 4): depende das chaves da API-NBA e do projeto Supabase |
+| Ingestão de dados reais | Pendente (Fase 4): chaves das APIs e banco já configurados e testados |
 | Páginas de estatística | Pendente (Fase 5) |
 | Cadastro, login e teste grátis | Pendente (Fase 6) |
 | Cobrança (Mercado Pago) | Preparada como contrato; desligada |
@@ -40,8 +40,8 @@ Sem nenhuma variável preenchida, o site sobe normalmente e usa dados fictícios
 
 Todas estão documentadas em [.env.example](.env.example). Regras:
 
-- Só `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `NEXT_PUBLIC_SITE_URL` vão para o navegador.
-- `SUPABASE_SERVICE_ROLE_KEY`, chaves de API e do Mercado Pago ficam só no servidor.
+- Só `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e `NEXT_PUBLIC_SITE_URL` vão para o navegador.
+- `SUPABASE_SECRET_KEY`, chaves de API e do Mercado Pago ficam só no servidor.
 - A chave da API-NBA deve ser criada em dashboard.api-football.com, **não** pelo RapidAPI (que cobra excedentes).
 
 ## Scripts
@@ -62,7 +62,7 @@ Os testes não usam rede nem credenciais: o banco roda em memória (PGlite) e os
 
 Vercel (plano Hobby, permitido para uso não comercial). Configure as variáveis de ambiente no painel da Vercel. Antes de ativar cobrança, migrar para o plano Pro (ver [COST_ESTIMATE.md](COST_ESTIMATE.md)).
 
-As migrations em `supabase/migrations/` só devem ser aplicadas no Supabase depois de aprovadas.
+As migrations em `supabase/migrations/` já foram aplicadas. Arquivos aplicados não devem ser editados: qualquer mudança no banco vai em uma nova migration, aplicada só depois de aprovada.
 
 ## Documentação
 

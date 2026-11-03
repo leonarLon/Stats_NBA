@@ -1,5 +1,5 @@
 import { AppError } from '../../lib/errors';
-import type { BoxScoreProvider, DateRange, ReferenceDataProvider, ScheduleProvider } from '../types';
+import type { BoxScoreProvider, DateRange, ProviderTeamGameTotals, ReferenceDataProvider, ScheduleProvider } from '../types';
 import { FIXTURE_BOX_SCORES, FIXTURE_GAMES, FIXTURE_PLAYERS, FIXTURE_TEAMS } from './data';
 
 /**
@@ -18,6 +18,23 @@ export class FixtureProvider implements ScheduleProvider, BoxScoreProvider, Refe
     const lines = FIXTURE_BOX_SCORES[gameExternalId];
     if (!lines) throw new AppError('NOT_FOUND', `Fixture box score not found: ${gameExternalId}`);
     return lines.map((l) => ({ ...l }));
+  }
+
+  async getTeamGameStats(gameExternalId: string) {
+    const lines = await this.getPlayerGameStats(gameExternalId);
+    // No fixture o box score é completo, então os totais do time são a soma dos jogadores
+    const totals = new Map<string, ProviderTeamGameTotals>();
+    for (const l of lines) {
+      const t = totals.get(l.teamExternalId) ?? {
+        teamExternalId: l.teamExternalId, pts: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
+        oreb: 0, dreb: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
+      };
+      for (const k of ['pts', 'fgm', 'fga', 'fg3m', 'fg3a', 'ftm', 'fta', 'reb', 'ast', 'stl', 'blk', 'tov', 'pf'] as const) t[k] += l[k];
+      t.oreb = (t.oreb ?? 0) + (l.oreb ?? 0);
+      t.dreb = (t.dreb ?? 0) + (l.dreb ?? 0);
+      totals.set(l.teamExternalId, t);
+    }
+    return [...totals.values()];
   }
 
   async listTeams() {

@@ -60,13 +60,34 @@ O formato da resposta será conferido com uma chamada real na Fase 4, antes de o
 
 ---
 
+### 1.3. Teste real das APIs (03/11/2026)
+
+Feito com as chaves do projeto, gastando 6 requisições da cota da API-NBA.
+
+| Verificação | Resultado |
+|---|---|
+| API-NBA `/status` | Plano **Free**, ativo, 100 requisições/dia |
+| API-NBA `/games?date=` | Filtra pela **data UTC** de início (um jogo das 22h30 em Los Angeles cai no dia seguinte). Status em `status.short` (3 = encerrado) e `status.long` ("Finished") |
+| API-NBA `/games/statistics?id=` (totais do time) | ✅ Corretos: batem com o placar e com o balldontlie |
+| API-NBA `/players/statistics?game=` (box score de jogadores) | ❌ **Incompleto em 3 de 4 times testados.** LAC @ GSW (124-112): os jogadores somam 85 e 100 pontos. TOR @ LAL (125-131): LAL completo; TOR soma 119 pontos e 225 minutos. O jogo incompleto terminou havia mais de 24h |
+| Minutos na API-NBA | Texto com minutos inteiros (`"21"`), sem segundos. A soma do time fica ±5 min de 240 |
+| Percentuais e +/- na API-NBA | Texto (`"14.3"`, `"0"`); recalculados por nós |
+| balldontlie `/v1/games?dates[]=` | ✅ 15 jogos de 02/11, todos `status_state = final`, placares corretos |
+| Supabase | Chaves publishable e secret válidas; nenhuma tabela criada ainda |
+
+**Consequências para o projeto:**
+1. Os totais de time vêm de `/games/statistics` (1 requisição extra por jogo), não da soma dos jogadores.
+2. Box scores de jogadores incompletos são comuns no plano gratuito. Decisão do usuário (03/11/2026): gravar o que vier, marcar o jogo como `partial`, tentar de novo após 24h/72h/7 dias e avisar na interface (docs/STATS_FORMULAS.md, seção 2.1).
+3. A validação de minutos precisa de tolerância maior (minutos inteiros arredondados).
+4. O vínculo entre jogos das duas fontes usa times + horário de início, nunca só a data.
+
 ## 2. Como as fontes se dividem
 
 | Tarefa | Fonte | Custo diário estimado |
 |---|---|---|
 | Calendário e status dos jogos (polling) | balldontlie Free | ~20–40 req/dia, dentro de 5/min |
-| Box score de jogo finalizado (estatísticas por jogador) | API-NBA | 1 req por jogo finalizado (~0–15/dia) |
-| Reconciliação T+24h | API-NBA | 1 req por jogo (~0–15/dia) |
+| Box score de jogo finalizado (jogadores + totais do time) | API-NBA | 2 req por jogo finalizado (~0–30/dia) |
+| Reconciliação de jogos `partial` (24h, 72h, 7 dias) | API-NBA | 1 req por jogo parcial por etapa (estimativa: ~10–25/dia) |
 | Carga histórica (backfill) | API-NBA | O que sobrar da cota diária |
 | Cadastro de times e jogadores | API-NBA (semanal) | ~2–3 req/semana |
 | Classificação | **Calculada por nós** a partir dos jogos | 0 |
@@ -91,7 +112,7 @@ Entre o fim real do jogo e os dados aparecerem no site: **de 15 a 45 minutos**. 
 
 ### Correções
 
-Cada jogo finalizado é reprocessado após **24 horas** (cota permitindo, também após 72h). Se o hash do conteúdo mudar, o jogo ganha uma nova `version` e as estatísticas agregadas são recalculadas.
+Só os jogos `partial` são reprocessados, após **24 horas, 72 horas e 7 dias**. Se o hash do conteúdo mudar, o jogo ganha uma nova `version` e as estatísticas agregadas são recalculadas. Jogos `complete` não são consultados de novo.
 
 ---
 

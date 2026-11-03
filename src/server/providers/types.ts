@@ -1,4 +1,4 @@
-import type { GameStatus, PlayerGameLine, SeasonType } from '../domain/types';
+import type { BoxCounts, GameStatus, PlayerGameLine, SeasonType } from '../domain/types';
 
 /**
  * Contratos que todo provedor de dados esportivos implementa.
@@ -59,10 +59,17 @@ export interface ScheduleProvider {
   listGames(range: DateRange): Promise<ProviderGame[]>;
 }
 
+/** Totais de um time em um jogo, como a fonte informa (não é a soma dos jogadores). */
+export interface ProviderTeamGameTotals extends BoxCounts {
+  teamExternalId: string;
+}
+
 export interface BoxScoreProvider {
   readonly slug: ProviderSlug;
-  /** Linhas de todos os jogadores dos dois times no jogo. */
+  /** Linhas dos jogadores dos dois times. Pode vir incompleto (ver classifyBoxScore). */
   getPlayerGameStats(gameExternalId: string): Promise<PlayerGameLine[]>;
+  /** Totais dos dois times, fonte da verdade para team_game_stats. */
+  getTeamGameStats(gameExternalId: string): Promise<ProviderTeamGameTotals[]>;
 }
 
 export interface ReferenceDataProvider {

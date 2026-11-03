@@ -1,5 +1,5 @@
 -- Tabelinha — 0002: perfis, planos, assinaturas, pagamentos e auditoria
--- PARA REVISÃO. Não executar no Supabase sem autorização explícita.
+-- Aplicada no Supabase em 03/11/2026 (SQL Editor), com autorização do usuário. Não editar: mudanças vão em uma nova migration.
 
 create type public.subscription_status as enum
   ('trialing', 'pending', 'incomplete', 'active', 'past_due', 'canceled', 'expired');
