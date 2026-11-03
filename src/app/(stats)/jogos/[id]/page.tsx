@@ -54,11 +54,17 @@ async function BoxScore({ id }: { id: number | null }) {
       {game.statsStatus === 'partial' && (
         <Notice>
           A fonte de dados enviou este box score sem alguns jogadores. O placar e os totais dos times estão corretos; a soma
-          das linhas dos jogadores pode ficar abaixo deles. Uma nova tentativa é feita 24 horas, 3 dias e 7 dias após o jogo.
+          das linhas dos jogadores pode ficar abaixo deles. Novas tentativas são feitas 6 e 18 horas após o jogo, enquanto a fonte ainda libera os dados.
         </Notice>
       )}
       {game.status === 'final' && game.statsStatus === 'pending' && (
         <Notice>O box score deste jogo ainda está sendo processado. Volte em alguns minutos.</Notice>
+      )}
+      {game.statsStatus === 'unavailable' && (
+        <Notice>
+          Este jogo não tem box score: a fonte gratuita libera estatísticas individuais apenas de jogos de até um dia atrás, e
+          ele aconteceu antes de o site começar a coletar. O placar está correto e conta na classificação.
+        </Notice>
       )}
       {game.status === 'final' && game.statsStatus === 'invalid' && (
         <Notice>

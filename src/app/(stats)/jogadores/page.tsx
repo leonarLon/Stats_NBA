@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { TableSkeleton } from '@/components/stats/loading';
-import { Notice, PageHeader, TeamLink } from '@/components/stats/notices';
+import { CoverageNote, Notice, PageHeader, TeamLink } from '@/components/stats/notices';
 import { Abbr, StatTable, StickyTh, Td, Th } from '@/components/stats/table';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/feedback';
@@ -11,7 +11,7 @@ import { fmt1, fmtPct } from '@/lib/format';
 import { parseEnumParam, parseSearchParam } from '@/lib/params';
 import { toSearchName } from '@/server/domain/normalize';
 import { PLAYER_SORT_KEYS, rankPlayers, type PlayerSeasonRow, type PlayerSortKey } from '@/server/stats/compute';
-import { getPlayerSeasons } from '@/server/stats/queries';
+import { getPlayerSeasons, isStatsDemo } from '@/server/stats/queries';
 
 export const metadata: Metadata = { title: 'Jogadores' };
 
@@ -160,6 +160,7 @@ async function Players({ sort, query, all }: { sort: PlayerSortKey; query: strin
         2 bolas de três, 1,5 lance livre). São critérios do STATS ALL IN, não os oficiais da NBA. * O time do jogador tem jogo
         com box score parcial na fonte; os totais podem estar abaixo do real.
       </Notice>
+      <CoverageNote demo={isStatsDemo()} />
     </div>
   );
 }

@@ -137,6 +137,13 @@ describe('API-NBA', () => {
     await expect(new ApiNbaProvider(http).getTeamGameStats('77')).rejects.toMatchObject({ code: 'UPSTREAM', retryable: false });
   });
 
+  it('data fora da janela do plano gratuito vira erro sem nova tentativa, com a mensagem da API', async () => {
+    const { http } = clientReturning({ '/games': { errors: { plan: 'Free plans do not have access to this date, try from 2026-11-02 to 2026-11-04.' }, response: [] } });
+    const err = await new ApiNbaProvider(http).findGamesByUtcDate('2026-10-27').catch((e) => e);
+    expect(err).toMatchObject({ code: 'UPSTREAM', retryable: false, details: { outsideWindow: true } });
+    expect(err.message).toContain('try from 2026-11-02');
+  });
+
   it('status do jogo', () => {
     expect(mapApiNbaStatus({ short: 1, long: 'Scheduled' })).toBe('scheduled');
     expect(mapApiNbaStatus({ short: 2, long: 'In Play' })).toBe('in_progress');

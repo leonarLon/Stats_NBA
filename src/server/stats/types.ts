@@ -6,7 +6,8 @@ import type { GameStatus, SeasonType } from '../domain/types';
  * e a camada de cálculo (compute.ts) os transforma nos modelos de tela abaixo.
  */
 
-export type StatsStatus = 'pending' | 'complete' | 'partial' | 'invalid';
+/** 'unavailable' não existe no banco: é um jogo encerrado sem box score porque saiu da janela da fonte. */
+export type StatsStatus = 'pending' | 'complete' | 'partial' | 'invalid' | 'unavailable';
 
 export interface SeasonRow {
   id: number;

@@ -15,6 +15,7 @@ Estatísticas de jogadores, times e partidas da NBA em português, atualizadas a
 | Ingestão de dados reais | Implementada; migration 0004 aplicada e primeira ingestão real feita em 03/11/2026. Falta cadastrar os secrets no GitHub para o agendamento |
 | Páginas de estatística | Jogos, box score, classificação, jogadores (ranking e busca), jogador, times e time. Exigem login com acesso ativo (Fase 6); sem Supabase, abrem em modo demonstração |
 | Cadastro, login e teste grátis | Implementados (cadastro com confirmação de e-mail, login, nova senha, teste de 3 dias por botão, exclusão de conta). Falta configurar as URLs no Supabase e validar com e-mail real |
+| Revisão de segurança | Feita em 03/11/2026: CSP, limite de tentativas, segredos, dependências ([SECURITY.md](SECURITY.md)) |
 | Cobrança (Mercado Pago) | Preparada como contrato; desligada |
 
 ## Tecnologias
@@ -57,7 +58,7 @@ Todas estão documentadas em [.env.example](.env.example). Regras:
 | `npm run check` | lint + typecheck + testes |
 | `npm run ingest:local -- schedule` | Calendário de ontem até +7 dias (exige `DATA_PROVIDER_MODE=live`) |
 | `npm run ingest:local -- tick` | Status dos jogos + box scores pendentes |
-| `npm run ingest:local -- backfill AAAA-MM-DD AAAA-MM-DD` | Carga histórica; continua de onde parou a cada execução |
+| `npm run ingest:local -- backfill AAAA-MM-DD AAAA-MM-DD` | Calendário e placares de um intervalo (box score só para jogos dentro da janela da fonte) |
 
 Os testes não usam rede nem credenciais: o banco roda em memória (PGlite) e os dados esportivos vêm do `FixtureProvider`.
 
@@ -87,6 +88,7 @@ As migrations em `supabase/migrations/` já foram aplicadas. Arquivos aplicados 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — módulos, pipeline, modelo de dados, segurança
 - [DATA_SOURCES.md](DATA_SOURCES.md) — fontes avaliadas, termos de uso, limites, contingência
 - [COST_ESTIMATE.md](COST_ESTIMATE.md) — limites gratuitos e custos futuros
+- [SECURITY.md](SECURITY.md) — revisão de segurança, cabeçalhos, limites e pendências
 - [docs/STATS_FORMULAS.md](docs/STATS_FORMULAS.md) — fórmulas e regras de validação
 - [docs/BRAND.md](docs/BRAND.md) — nome, identidade visual e tom de voz
 
@@ -97,6 +99,6 @@ As migrations em `supabase/migrations/` já foram aplicadas. Arquivos aplicados 
 - O SMTP padrão do Supabase só entrega e-mails para membros da equipe do projeto e tem cota baixa. Antes de abrir o cadastro ao público, é preciso configurar um SMTP próprio.
 - Quem exclui a conta e se cadastra de novo com o mesmo e-mail ganha outro teste grátis.
 - Com a pasta do projeto no OneDrive, a pasta `.next` às vezes fica bloqueada e o build falha com `EPERM`. Basta apagar `.next` e rodar de novo.
-- Cota gratuita da API-NBA (100 requisições/dia) limita a carga de temporadas antigas (~20 dias por temporada).
+- O plano gratuito da API-NBA só libera box scores de ontem, hoje e amanhã. Por isso as médias de 2026-27 começam em 02/11/2026 (início da coleta) e não há temporadas anteriores. Classificação e resultados cobrem a temporada inteira.
 - Estatísticas avançadas são estimativas a partir do box score.
 - O balldontlie não publica termos de uso; ele é usado só para status e placares, e o sistema funciona sem ele.

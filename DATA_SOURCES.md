@@ -32,7 +32,7 @@ Regra do projeto: **nenhuma API esportiva paga**. Só usamos fontes gratuitas e 
 | Cota diária | No dashboard próprio, ao atingir a cota a conta fica suspensa até 00:00 UTC (sem cobrança extra) | ✅ Controle em `provider_quota_usage` |
 | **RapidAPI** | Pelo RapidAPI, ultrapassar a cota gera **cobrança de excedente** | ⚠️ **Cadastrar a chave pelo dashboard próprio (dashboard.api-football.com), nunca pelo RapidAPI** |
 | Plano gratuito | "Limitado em termos de dados disponíveis"; pode mudar a qualquer momento sem aviso | ⚠️ Confirma que temporadas anteriores podem não estar disponíveis. Verificar na Fase 4 |
-| Qualidade | Dados "como estão", podem conter erros | ✅ Validações por linha e por jogo; reconciliação após 24h |
+| Qualidade | Dados "como estão", podem conter erros | ✅ Validações por linha e por jogo; reconciliação 6h e 18h após o jogo |
 
 **Conclusão:** para um projeto **não comercial**, o uso previsto está dentro dos termos da API-Sports. Se o projeto passar a cobrar, a pendência é a licença dos dados junto aos detentores dos direitos, que a API-Sports expressamente não fornece.
 
@@ -77,7 +77,7 @@ Feito com as chaves do projeto, gastando 6 requisições da cota da API-NBA.
 
 **Consequências para o projeto:**
 1. Os totais de time vêm de `/games/statistics` (1 requisição extra por jogo), não da soma dos jogadores.
-2. Box scores de jogadores incompletos são comuns no plano gratuito. Decisão do usuário (03/11/2026): gravar o que vier, marcar o jogo como `partial`, tentar de novo após 24h/72h/7 dias e avisar na interface (docs/STATS_FORMULAS.md, seção 2.1).
+2. Box scores de jogadores incompletos são comuns no plano gratuito. Decisão do usuário (03/11/2026): gravar o que vier, marcar o jogo como `partial`, tentar de novo após 6h e 18h e avisar na interface (docs/STATS_FORMULAS.md, seção 2.1).
 3. A validação de minutos precisa de tolerância maior (minutos inteiros arredondados).
 4. O vínculo entre jogos das duas fontes usa times + horário de início, nunca só a data.
 
@@ -90,7 +90,20 @@ Feita com o worker, depois de aplicada a migration 0004.
 | Calendário (02/11 a 10/11) | 30 times, 68 jogos, 15 encerrados, classificação recalculada | balldontlie: 2 |
 | Box score de 2 jogos de 02/11 | Ambos `partial`. Placar e totais dos times corretos. Faltam jogadores: OKC @ CLE com 9 e 8 jogadores (CLE soma 83 de 112 pontos); DET @ CHA com 12 e 11 jogadores (somam 120 de 124 e 81 de 91 pontos) | API-NBA: 5 (1 busca por data + 2 por jogo) |
 
-Isso confirma o padrão da seção 1.3. O jogo fica `partial` até alguma reconciliação (24h, 72h e 7 dias) trazer o box score completo.
+Isso confirma o padrão da seção 1.3. O jogo fica `partial` até alguma reconciliação trazer o box score completo.
+
+### 1.5. Janela de datas do plano gratuito (03/11/2026)
+
+A carga da temporada (20/10 a 01/11) falhou em 38 de 40 jogos. A API-NBA respondeu, para `/games?date=2026-10-27`:
+
+> `Free plans do not have access to this date, try from 2026-11-02 to 2026-11-04.`
+
+**O plano gratuito só libera ontem, hoje e amanhã (datas UTC).** Consequências:
+
+1. **Não há como obter box scores de jogos antigos** em nenhuma fonte gratuita (o balldontlie gratuito não tem estatística de jogador). A temporada 2026-27 tem box scores a partir de 02/11/2026, quando a coleta começou. Calendário, placares e classificação cobrem a temporada inteira, porque vêm do balldontlie.
+2. As reconciliações de jogos parciais passaram de 24h/72h/7 dias para **6h e 18h** após o fim do jogo, dentro da janela.
+3. O worker não consulta a API para jogos fora da janela: encerra a sincronização com `last_error = 'fora da janela de datas da fonte gratuita'`, e o site mostra "Sem box score". O mesmo acontece se a API recusar a data.
+4. Comparações com temporadas anteriores não são possíveis com fontes gratuitas.
 
 ## 2. Como as fontes se dividem
 
@@ -98,8 +111,8 @@ Isso confirma o padrão da seção 1.3. O jogo fica `partial` até alguma reconc
 |---|---|---|
 | Calendário e status dos jogos (polling) | balldontlie Free | ~20–40 req/dia, dentro de 5/min |
 | Box score de jogo finalizado (jogadores + totais do time) | API-NBA | 2 req por jogo finalizado (~0–30/dia) |
-| Reconciliação de jogos `partial` (24h, 72h, 7 dias) | API-NBA | 1 req por jogo parcial por etapa (estimativa: ~10–25/dia) |
-| Carga histórica (backfill) | API-NBA | O que sobrar da cota diária |
+| Reconciliação de jogos `partial` (6h e 18h após o fim) | API-NBA | 2 req por jogo parcial por etapa (estimativa: ~20–40/dia) |
+| Carga histórica (backfill) | balldontlie (calendário e placares); API-NBA só dentro da janela de 1 dia | Sem custo de API-NBA para jogos antigos |
 | Cadastro de times e jogadores | API-NBA (semanal) | ~2–3 req/semana |
 | Classificação | **Calculada por nós** a partir dos jogos | 0 |
 | Médias, rankings, recordes, indicadores avançados | **Calculados por nós** a partir dos box scores | 0 |
@@ -124,7 +137,7 @@ Entre o fim real do jogo e os dados aparecerem no site: **de 15 a 45 minutos**. 
 
 ### Correções
 
-Só os jogos `partial` são reprocessados, após **24 horas, 72 horas e 7 dias**. Se o hash do conteúdo mudar, o jogo ganha uma nova `version` e as estatísticas agregadas são recalculadas. Jogos `complete` não são consultados de novo.
+Só os jogos `partial` são reprocessados, **6 e 18 horas** após o fim do jogo (a fonte gratuita não libera jogos mais antigos que ontem). Se o hash do conteúdo mudar, o jogo ganha uma nova `version` e as estatísticas agregadas são recalculadas. Jogos `complete` não são consultados de novo.
 
 ---
 
@@ -155,11 +168,11 @@ interface ReferenceDataProvider {
 
 ## 5. Limitações conhecidas
 
-1. **Histórico limitado pela cota.** A temporada tem ~1.230 jogos. Com ~60 requisições livres por dia, carregar uma temporada passada inteira leva **cerca de 20 dias**. Prioridade: (1) temporada atual 2026-27, (2) 2025-26 para comparações "temporada atual × anterior".
-2. **Não confirmado:** se o plano Free da API-NBA dá acesso a temporadas anteriores. Será verificado com chamadas reais na Fase 4.
+1. **Sem histórico de box score.** O plano gratuito da API-NBA só libera jogos de ontem, hoje e amanhã (seção 1.5). As médias da temporada 2026-27 começam em 02/11/2026, e não há temporadas anteriores.
+2. **Box scores parciais podem ficar parciais para sempre** se a fonte não completar dentro da janela de um dia.
 3. **Estatísticas avançadas oficiais** (tracking, hustle, play types) não existem nas fontes gratuitas. Calcularemos apenas o que é possível a partir do box score (seção 6 de [docs/STATS_FORMULAS.md](docs/STATS_FORMULAS.md)).
 4. **Dependência de terceiros pequenos.** Se uma fonte cair, o site continua mostrando os dados já gravados, com o aviso "dados atualizados até <data>".
-5. O **formato exato** das respostas da API-NBA será validado com chamadas reais na Fase 4; os adaptadores não assumem campos sem testar.
+5. O formato das respostas foi conferido com chamadas reais em 03/11/2026 (seção 1.3).
 
 ---
 
@@ -168,6 +181,6 @@ interface ReferenceDataProvider {
 | Falha | Comportamento |
 |---|---|
 | balldontlie fora do ar ou descartado pelos termos | O job usa `games?date=` da API-NBA como fonte de status, com intervalo maior (30 min) para economizar cota |
-| API-NBA fora do ar ou cota esgotada | O jogo fica `stats_status = pending` e é tentado de novo no ciclo seguinte (backoff: 15 min, 30 min, 1h, 2h, depois a cada 6h por até 72h) |
+| API-NBA fora do ar ou cota esgotada | O jogo fica `stats_status = pending` e é tentado de novo no ciclo seguinte (backoff: 15 min, 30 min, 1h, 2h, depois a cada 6h), até sair da janela de datas da fonte |
 | Dados inconsistentes (ex.: soma dos pontos dos jogadores ≠ placar) | Jogo marcado `stats_status = invalid`, não entra nos agregados, alerta registrado em `sync_logs` |
 | Fonte encerra o plano gratuito | Troca de adaptador. Os dados já gravados continuam válidos |

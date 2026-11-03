@@ -51,6 +51,8 @@ const teamStatSchema = z.object({
   ),
 });
 
+export const OUTSIDE_WINDOW = 'API-NBA free plan: date outside the allowed window';
+
 function assertNoErrors(errors: unknown[] | Record<string, unknown>, path: string): void {
   const list = Array.isArray(errors) ? errors : Object.values(errors);
   if (list.length === 0) return;
@@ -58,9 +60,14 @@ function assertNoErrors(errors: unknown[] | Record<string, unknown>, path: strin
   if (/request limit|requests? for the day|quota/i.test(text)) {
     throw new AppError('QUOTA_EXHAUSTED', `API-NBA daily quota reached (${path})`);
   }
+  // Data fora da janela do plano: tentar de novo nunca vai funcionar
+  if (/do not have access to this date/i.test(text)) {
+    throw new AppError('UPSTREAM', `${OUTSIDE_WINDOW} (${path}): ${text.slice(0, 200)}`, { details: { errors, outsideWindow: true }, retryable: false });
+  }
   // Erros de limite por minuto podem ser tentados de novo depois
   const retryable = /rate ?limit|too many/i.test(text);
-  throw new AppError('UPSTREAM', `API-NBA error on ${path}`, { details: { errors }, retryable });
+  // A mensagem da API entra no erro (e no log): sem ela não dá para diagnosticar
+  throw new AppError('UPSTREAM', `API-NBA error on ${path}: ${text.slice(0, 200)}`, { details: { errors }, retryable });
 }
 
 function teamCode(team: z.infer<typeof teamRef>): string {
@@ -132,6 +139,8 @@ export function mapApiNbaTeamTotals(r: z.infer<typeof teamStatSchema>): Provider
 
 export class ApiNbaProvider implements BoxScoreProvider {
   readonly slug = 'api-nba' as const;
+  /** Plano gratuito (teste real em 03/11/2026): "Free plans do not have access to this date, try from <ontem> to <amanhã>". */
+  readonly pastDaysAvailable = 1;
 
   constructor(private readonly http: HttpClient) {}
 

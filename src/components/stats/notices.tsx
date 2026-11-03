@@ -74,7 +74,19 @@ export function BoxScoreStatus({ game }: { game: GameSummary }) {
   if (game.statsStatus === 'partial') return <PartialBadge />;
   if (game.statsStatus === 'pending') return <Badge>Box score em processamento</Badge>;
   if (game.statsStatus === 'invalid') return <Badge>Box score indisponível</Badge>;
+  if (game.statsStatus === 'unavailable') return <Badge title="A fonte gratuita não libera mais este jogo">Sem box score</Badge>;
   return null;
+}
+
+/** Aviso de cobertura das médias. Não aparece no modo demonstração (dados fictícios). */
+export function CoverageNote({ demo }: { demo: boolean }) {
+  if (demo) return null;
+  return (
+    <Notice>
+      As médias e totais usam só jogos com box score, coletados a partir de 02/11/2026. A fonte gratuita libera box scores
+      apenas de até um dia atrás, então os jogos anteriores entram na classificação e nos resultados, mas não nas médias.
+    </Notice>
+  );
 }
 
 export function TeamLink({ team, full = false, className }: { team: { abbreviation: string; name: string }; full?: boolean; className?: string }) {

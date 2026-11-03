@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { TableSkeleton } from '@/components/stats/loading';
-import { Notice, PageHeader, TeamLink } from '@/components/stats/notices';
+import { CoverageNote, Notice, PageHeader, TeamLink } from '@/components/stats/notices';
 import { Abbr, StatTable, StickyTh, Td, Th } from '@/components/stats/table';
 import { EmptyState } from '@/components/ui/feedback';
 import { fmt1, fmtPct, fmtSigned } from '@/lib/format';
-import { getTeamSeasons } from '@/server/stats/queries';
+import { getTeamSeasons, isStatsDemo } from '@/server/stats/queries';
 
 export const metadata: Metadata = { title: 'Times' };
 
@@ -32,8 +32,8 @@ async function Teams() {
         <thead>
           <tr>
             <Th numeric={false} className="sticky left-0 z-10">Time</Th>
-            <Th><Abbr short="J" full="Jogos" /></Th>
-            <Th><Abbr short="V-D" full="Vitórias e derrotas" /></Th>
+            <Th><Abbr short="J" full="Jogos com box score (base das médias)" /></Th>
+            <Th><Abbr short="V-D" full="Vitórias e derrotas na temporada" /></Th>
             <Th><Abbr short="PTS" full="Pontos por jogo" /></Th>
             <Th><Abbr short="SOF" full="Pontos sofridos por jogo" /></Th>
             <Th><Abbr short="REB" full="Rebotes por jogo" /></Th>
@@ -75,6 +75,7 @@ async function Teams() {
         Posses estimadas pelo box score (arremessos − rebotes ofensivos + erros + 0,44 × lances livres). Os ratings são
         estimativas e podem diferir dos números oficiais. Temporada {data.season}.
       </Notice>
+      <CoverageNote demo={isStatsDemo()} />
     </div>
   );
 }

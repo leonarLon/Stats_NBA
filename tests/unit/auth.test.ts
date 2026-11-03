@@ -24,6 +24,7 @@ vi.mock('@/server/supabase/admin', () => ({
   }),
 }));
 vi.mock('next/server', () => ({ connection: async () => {} }));
+vi.mock('next/headers', () => ({ headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.7, 10.0.0.1' }) }));
 vi.mock('next/navigation', () => ({
   redirect: (to: string) => {
     throw new Error(`REDIRECT:${to}`);
@@ -153,6 +154,18 @@ describe('ações de conta', () => {
     auth.signOut.mockResolvedValue({ error: null });
     await expect(actions.deleteAccount(IDLE, form({ confirmation: 'EXCLUIR' }))).rejects.toThrow('REDIRECT:/?conta=excluida');
     expect(adminDeleteUser).toHaveBeenCalledWith('user-1');
+  });
+
+  it('bloqueia muitas tentativas de login no mesmo e-mail, sem chamar o Supabase', async () => {
+    auth.signInWithPassword.mockResolvedValue({ error: { code: 'invalid_credentials', status: 400 } });
+    for (let i = 0; i < 8; i++) await actions.signIn(IDLE, form({ email: 'alvo@b.com', password: `tentativa-${i}` }));
+    expect(auth.signInWithPassword).toHaveBeenCalledTimes(8);
+    const state = await actions.signIn(IDLE, form({ email: 'alvo@b.com', password: 'mais-uma' }));
+    expect(state.message).toMatch(/Muitas tentativas seguidas. Tente de novo em \d+ minutos?/);
+    expect(auth.signInWithPassword).toHaveBeenCalledTimes(8);
+    // Outro e-mail do mesmo IP continua liberado
+    await actions.signIn(IDLE, form({ email: 'outro@b.com', password: 'x' }));
+    expect(auth.signInWithPassword).toHaveBeenCalledTimes(9);
   });
 
   it('sem Supabase configurado, as ações avisam que é demonstração', async () => {

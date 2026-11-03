@@ -70,6 +70,11 @@ export interface ScheduleProvider {
 
 export interface BoxScoreProvider {
   readonly slug: ProviderSlug;
+  /**
+   * Quantos dias de UTC para trás a fonte libera (API-NBA gratuita: só ontem, hoje e amanhã).
+   * Ausente = sem restrição. Jogos mais antigos nem são consultados, para não gastar cota.
+   */
+  readonly pastDaysAvailable?: number;
   /** Jogos que COMEÇAM numa data UTC (usado para achar o ID do jogo neste provedor). */
   findGamesByUtcDate(utcDate: string): Promise<ProviderGame[]>;
   /** Linhas dos jogadores dos dois times. Pode vir incompleto (ver classifyBoxScore). */

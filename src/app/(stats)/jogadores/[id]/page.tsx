@@ -4,12 +4,12 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { BOX_COLUMNS, BoxCountCells } from '@/components/stats/box-score-table';
 import { TableSkeleton } from '@/components/stats/loading';
-import { Notice, PartialBadge, TeamLink } from '@/components/stats/notices';
+import { CoverageNote, Notice, PartialBadge, TeamLink } from '@/components/stats/notices';
 import { Abbr, StatTable, StickyTh, Td, Th } from '@/components/stats/table';
 import { EmptyState } from '@/components/ui/feedback';
 import { fmt1, fmtGameDate, fmtMinutes, fmtPct, fmtSigned } from '@/lib/format';
 import { parseIdParam } from '@/lib/params';
-import { getPlayer } from '@/server/stats/queries';
+import { getPlayer, isStatsDemo } from '@/server/stats/queries';
 
 export const metadata: Metadata = { title: 'Jogador' };
 
@@ -84,6 +84,7 @@ async function Player({ id }: { id: number | null }) {
               que ele aparece.
             </Notice>
           )}
+          <CoverageNote demo={isStatsDemo()} />
         </section>
       ) : (
         <EmptyState title="Sem jogos nesta temporada" />

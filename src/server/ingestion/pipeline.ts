@@ -5,6 +5,7 @@ import { classifyBoxScore, type BoxScoreResult } from '../domain/validation';
 import { AppError, isAppError } from '../lib/errors';
 import type { Logger } from '../lib/logger';
 import type { BoxScoreProvider, DateRange, ProviderGame, ReferenceDataProvider, ScheduleProvider } from '../providers/types';
+import { UNAVAILABLE_REASON } from './constants';
 import type { DueGame, IngestionStore, JobStatus, JobType, ResolvedPlayerLine, ResolvedTeamTotals } from './store';
 
 /**
@@ -22,8 +23,11 @@ export interface PipelineDeps {
   metrics?: { requests: Record<string, number> };
 }
 
-/** Atrasos das reconciliações de jogos parciais, contados a partir do fim do jogo. */
-export const RECONCILE_DELAYS_HOURS = [24, 72, 168] as const;
+/**
+ * Atrasos das reconciliações de jogos parciais, contados a partir do fim do jogo.
+ * Curtos de propósito: a API-NBA gratuita só libera jogos de ontem, hoje e amanhã (UTC).
+ */
+export const RECONCILE_DELAYS_HOURS = [6, 18] as const;
 /** Espera entre tentativas após falha de rede/fonte. */
 export const RETRY_BACKOFF_MINUTES = [15, 30, 60, 120, 360] as const;
 /** Teto da fila lida do banco a cada execução (uma temporada inteira tem ~1.300 jogos). */
@@ -146,6 +150,18 @@ export function nextSyncStateAfterFailure(game: Pick<DueGame, 'attempts' | 'reco
   };
 }
 
+/** O jogo já saiu da janela de datas que a fonte de box score libera? */
+export function isOutsideBoxWindow(box: Pick<BoxScoreProvider, 'pastDaysAvailable'>, game: Pick<DueGame, 'starts_at' | 'game_date'>, now: Date): boolean {
+  if (box.pastDaysAvailable === undefined) return false;
+  const date = utcDate(game.starts_at ?? `${game.game_date}T00:00:00Z`);
+  return date < addDays(utcDate(now), -box.pastDaysAvailable);
+}
+
+/** Encerra a sincronização do jogo sem box score (ou com o parcial que já tinha). */
+function unavailableState(game: Pick<DueGame, 'attempts' | 'reconcile_stage'>, now: Date) {
+  return { attempts: game.attempts, nextCheckAt: null, reconcileStage: game.reconcile_stage, reconcileAt: null, reconciledAt: now, lastError: UNAVAILABLE_REASON };
+}
+
 async function resolveBoxRef(deps: PipelineDeps, game: DueGame, cache: Map<string, ProviderGame[]>): Promise<string> {
   if (game.box_ref) return game.box_ref;
   const date = utcDate(game.starts_at ?? `${game.game_date}T00:00:00Z`);
@@ -237,6 +253,8 @@ export interface IngestDueResult {
   processed: number;
   failed: number;
   changed: number;
+  /** Jogos fora da janela da fonte: encerrados sem consultar a API. */
+  unavailable: number;
   byStatus: Record<BoxScoreResult['status'], number>;
   stoppedForQuota: boolean;
 }
@@ -250,9 +268,14 @@ export async function ingestDueGames(deps: PipelineDeps, jobId: string | null, m
     .slice(0, maxGames);
   const cache = new Map<string, ProviderGame[]>();
   const affected = new Map<string, { seasonId: number; seasonType: SeasonType; players: Set<number>; teams: Set<number> }>();
-  const result: IngestDueResult = { due: due.length, processed: 0, failed: 0, changed: 0, byStatus: { complete: 0, partial: 0, invalid: 0 }, stoppedForQuota: false };
+  const result: IngestDueResult = { due: due.length, processed: 0, failed: 0, changed: 0, unavailable: 0, byStatus: { complete: 0, partial: 0, invalid: 0 }, stoppedForQuota: false };
 
   for (const game of due) {
+    if (isOutsideBoxWindow(deps.box, game, nowOf(deps))) {
+      result.unavailable++;
+      await deps.store.setSyncState(game.game_id, unavailableState(game, nowOf(deps)));
+      continue;
+    }
     try {
       const outcome = await ingestGame(deps, game, cache);
       result.processed++;
@@ -277,6 +300,12 @@ export async function ingestDueGames(deps: PipelineDeps, jobId: string | null, m
         result.stoppedForQuota = true;
         await deps.store.log(jobId, 'warn', 'cota diária esgotada; restante fica para o próximo ciclo', { game_id: game.game_id });
         break;
+      }
+      // A fonte recusou a data (janela do plano): tentar de novo não adianta
+      if (isAppError(error) && error.details?.outsideWindow) {
+        result.unavailable++;
+        await deps.store.setSyncState(game.game_id, unavailableState(game, nowOf(deps)));
+        continue;
       }
       result.failed++;
       const message = error instanceof Error ? error.message : String(error);

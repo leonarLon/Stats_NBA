@@ -178,12 +178,12 @@ describe('box score incompleto (parcial)', () => {
     const log = await one(`select level, message from sync_logs where message like 'box score%'`);
     expect(log).toEqual({ level: 'info', message: 'box score partial' });
 
-    // Antes de 24h: nada a fazer
-    hoursLater(12);
+    // Antes da primeira reconciliação: nada a fazer
+    hoursLater(RECONCILE_DELAYS_HOURS[0] / 2);
     const early = await runTickJob(deps);
     expect(early.result).toMatchObject({ due: 0 });
 
-    // Depois de 24h a fonte completou: o jogo vira complete e a reconciliação termina
+    // Na reconciliação, a fonte já completou: o jogo vira complete e a reconciliação termina
     fixture.data.boxScores['fx-g1'] = full;
     hoursLater(RECONCILE_DELAYS_HOURS[0]);
     const late = await runTickJob(deps);
@@ -271,6 +271,37 @@ describe('falhas e limites', () => {
   it('trava expirada é liberada', async () => {
     await db.exec(`insert into job_locks (name, holder, locked_until) values ('ingestion', 'travado', now() - interval '1 minute')`);
     expect((await runTickJob(deps)).status).toBe('succeeded');
+  });
+});
+
+describe('janela de datas da fonte gratuita', () => {
+  it('jogo fora da janela é encerrado sem consultar a API e não volta para a fila', async () => {
+    Object.assign(boxFixture, { pastDaysAvailable: 1 });
+    await runScheduleJob(deps);
+    at('2026-10-31T12:00:00Z'); // o jogo de 28/10 já saiu da janela (30/10 a 01/11)
+    await makeDue();
+
+    const res = await runTickJob(deps);
+    expect(res.result).toMatchObject({ due: 1, processed: 0, failed: 0, unavailable: 1 });
+    expect(boxFixture.calls).toEqual([]);
+    expect(await one(`select stats_status from games where status = 'final'`)).toEqual({ stats_status: 'pending' });
+    expect(await one(`select next_check_at, reconciled_at is not null as done, last_error from game_sync_state`)).toEqual({
+      next_check_at: null, done: true, last_error: 'fora da janela de datas da fonte gratuita',
+    });
+
+    hoursLater(1);
+    expect((await runTickJob(deps)).result).toMatchObject({ due: 0 });
+  });
+
+  it('se a fonte recusar a data, encerra sem nova tentativa', async () => {
+    await runScheduleJob(deps);
+    boxFixture.findGamesByUtcDate = async () => {
+      throw new AppError('UPSTREAM', 'recusado', { details: { outsideWindow: true }, retryable: false });
+    };
+    const res = await runTickJob(deps);
+    expect(res.result).toMatchObject({ failed: 0, unavailable: 1 });
+    expect(res.status).toBe('succeeded');
+    expect(await one(`select next_check_at, attempts from game_sync_state`)).toEqual({ next_check_at: null, attempts: 0 });
   });
 });
 

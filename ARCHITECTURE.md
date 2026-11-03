@@ -102,7 +102,7 @@ tests/                    # fixtures, unit, integration, db, e2e
 10. **Frontend:** as consultas usam `'use cache'` com `cacheLife('minutes')` e `cacheTag`; o worker chama `/api/revalidate` (protegida por segredo), que executa `revalidateTag(tag, 'max')`.
 11. **Histórico:** `sync_jobs` (uma linha por execução) e `sync_logs` (eventos). A sincronização só termina como `succeeded` se o número de linhas gravadas for igual ao recebido e as validações por jogo passarem.
 
-**Reconciliação:** só para jogos `partial` (os `complete` não gastam cota). `game_sync_state.reconcile_stage` avança 24h → 72h → 7 dias após o fim do jogo. Ao reprocessar, se o hash mudou, os passos 7–10 rodam de novo. Depois da 3ª tentativa, o jogo fica `partial` em definitivo.
+**Reconciliação:** só para jogos `partial` (os `complete` não gastam cota). `game_sync_state.reconcile_stage` avança 6h → 18h após o fim do jogo (a API-NBA gratuita só libera ontem, hoje e amanhã). Jogos fora dessa janela são encerrados sem consultar a API e aparecem no site como "Sem box score". Ao reprocessar, se o hash mudou, os passos 7–10 rodam de novo. Depois da 3ª tentativa, o jogo fica `partial` em definitivo.
 
 **Gravação:** toda escrita da ingestão passa por funções SQL ([supabase/migrations/20261103000004_ingestion.sql](supabase/migrations/20261103000004_ingestion.sql)) chamadas via RPC com a chave secreta. Cada função é atômica, e nenhuma pode ser executada por `anon`/`authenticated`. Os testes rodam o pipeline inteiro contra essas mesmas funções num Postgres em memória.
 
@@ -227,9 +227,9 @@ Tudo será testado no **ambiente de testes (sandbox)** do Mercado Pago, sem dinh
 - Segredos (`SUPABASE_SECRET_KEY`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `APISPORTS_KEY`, `BALLDONTLIE_KEY`, `REVALIDATE_SECRET`) só em variáveis **sem** prefixo `NEXT_PUBLIC_`, lidas apenas em `src/server/lib/config.ts`, validadas com Zod na inicialização.
 - No navegador: apenas `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (públicas por design; protegidas pelo RLS).
 - Entradas validadas com Zod em todas as rotas e parâmetros de URL.
-- Rate limiting nas rotas de auth (proteção nativa do Supabase Auth) e nas rotas de billing.
+- Limite de tentativas nas ações de conta, contado por IP e por e-mail no servidor (o limite do Supabase Auth só enxerga o IP do servidor).
 - Webhooks: assinatura HMAC, idempotência e consulta de confirmação à API.
-- Cabeçalhos: CSP, `X-Frame-Options`, `Referrer-Policy`, HSTS (via `next.config`).
+- Cabeçalhos: CSP sem nonce (compatível com Partial Prerendering), `X-Frame-Options`, `Referrer-Policy`, HSTS, COOP (via `next.config`). Detalhes e verificação em [SECURITY.md](SECURITY.md).
 - Logs estruturados em JSON, sem e-mail, senha, tokens ou dados de cartão.
 - LGPD: política de privacidade e termos; exclusão de conta apaga dados pessoais (cascade).
 - Sem logos, fotos ou marcas da NBA e dos times (os termos da API-Sports deixam o licenciamento dessas imagens por conta do usuário).

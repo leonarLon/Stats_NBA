@@ -3,13 +3,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { TableSkeleton } from '@/components/stats/loading';
-import { BoxScoreStatus, GameStatusLabel, TeamLink } from '@/components/stats/notices';
+import { BoxScoreStatus, CoverageNote, GameStatusLabel, TeamLink } from '@/components/stats/notices';
 import { Abbr, StatTable, StickyTh, Td, Th } from '@/components/stats/table';
 import { EmptyState } from '@/components/ui/feedback';
 import { fmt1, fmtGameDate, fmtPct, fmtRecord, fmtSigned, fmtStreak } from '@/lib/format';
 import { parseTeamParam } from '@/lib/params';
 import type { GameSummary, TeamRef } from '@/server/stats/compute';
-import { getTeam } from '@/server/stats/queries';
+import { getTeam, isStatsDemo } from '@/server/stats/queries';
 
 export const metadata: Metadata = { title: 'Time' };
 
@@ -35,7 +35,7 @@ async function Team({ abbreviation }: { abbreviation: string | null }) {
   const upcoming = games.filter((g) => g.status === 'scheduled' || g.status === 'in_progress').slice(0, 5);
   const highlights = s
     ? [
-        { label: 'Campanha', value: fmtRecord(s.wins, s.losses) },
+        { label: 'Campanha', value: standing ? fmtRecord(standing.wins, standing.losses) : fmtRecord(s.wins, s.losses) },
         { label: 'Pontos', value: fmt1(s.pts) },
         { label: 'Pontos sofridos', value: fmt1(s.oppPts) },
         { label: 'Saldo por 100 posses', value: fmtSigned(s.netRating, 1) },
@@ -67,6 +67,8 @@ async function Team({ abbreviation }: { abbreviation: string | null }) {
           ))}
         </dl>
       )}
+
+      <CoverageNote demo={isStatsDemo()} />
 
       <section aria-labelledby="elenco" className="space-y-3">
         <h2 id="elenco" className="font-display text-2xl font-semibold tracking-wide">

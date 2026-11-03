@@ -56,6 +56,30 @@ test.describe('landing page', () => {
     expect(res.headers()['x-frame-options']).toBe('DENY');
     expect(res.headers()['x-content-type-options']).toBe('nosniff');
     expect(res.headers()['x-powered-by']).toBeUndefined();
+    const csp = res.headers()['content-security-policy'];
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
+  });
+
+  test('a CSP não bloqueia nada do próprio site (navegação, formulários, tabelas)', async ({ page }) => {
+    const violations: string[] = [];
+    page.on('console', (m) => {
+      if (/Content Security Policy|Refused to/i.test(m.text())) violations.push(`${page.url()}: ${m.text()}`);
+    });
+    for (const path of ['/', '/jogos', '/jogos/1', '/jogadores?ordem=reb', '/times/AUR', '/cadastro', '/planos']) {
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+    }
+    // Navegação pelo cliente (usa os scripts e o RSC) e uma Server Action
+    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Classificação' }).click();
+    await expect(page).toHaveURL(/\/classificacao$/);
+    await page.goto('/entrar');
+    await page.getByLabel('E-mail').fill('teste@exemplo.com');
+    await page.getByLabel('Senha').fill('x');
+    await page.getByRole('button', { name: 'Entrar' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'modo demonstração' })).toBeVisible();
+    expect(violations).toEqual([]);
   });
 });
 

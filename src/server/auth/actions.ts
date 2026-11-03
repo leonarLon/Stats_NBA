@@ -1,6 +1,8 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { AUTH_RULES, authLimiter, type AttemptRule } from '../lib/attempt-limiter';
 import { getAppConfig } from '../lib/config';
 import { logger } from '../lib/logger';
 import { getSupabaseAdmin } from '../supabase/admin';
@@ -55,6 +57,21 @@ function emailOf(formData: FormData): string {
   return String(formData.get('email') ?? '').slice(0, 254);
 }
 
+/** IP do visitante. Na Vercel, x-forwarded-for é preenchido pela própria plataforma. */
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  return h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'desconhecido';
+}
+
+/** Conta a tentativa em todas as regras; devolve a mensagem de espera se alguma estourou. */
+function tooManyAttempts(checks: Array<[AttemptRule, string]>): string | null {
+  const wait = Math.max(...checks.map(([rule, key]) => authLimiter.hit(rule, key)));
+  if (wait === 0) return null;
+  log.warn('auth attempts limited', { rules: checks.map(([r]) => r.name) });
+  const minutes = Math.max(1, Math.ceil(wait / 60));
+  return `Muitas tentativas seguidas. Tente de novo em ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}.`;
+}
+
 function siteUrl(path: string): string {
   return new URL(path, getAppConfig().NEXT_PUBLIC_SITE_URL).toString();
 }
@@ -64,9 +81,14 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
   const parsed = signInSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { status: 'error', fields: fieldErrors(parsed.error), email: emailOf(formData) };
 
+  const ip = await clientIp();
+  const limited = tooManyAttempts([[AUTH_RULES.loginPerIp, ip], [AUTH_RULES.loginPerEmail, parsed.data.email]]);
+  if (limited) return { status: 'error', message: limited, email: parsed.data.email };
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { status: 'error', message: authError('sign_in', error), email: parsed.data.email };
+  authLimiter.reset(AUTH_RULES.loginPerEmail, parsed.data.email);
 
   redirect(safeNextPath(formData.get('proximo')));
 }
@@ -75,6 +97,9 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   if (!isAuthEnabled()) return { ...DEMO, email: emailOf(formData) };
   const parsed = signUpSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { status: 'error', fields: fieldErrors(parsed.error), email: emailOf(formData) };
+
+  const limited = tooManyAttempts([[AUTH_RULES.signupPerIp, await clientIp()]]);
+  if (limited) return { status: 'error', message: limited, email: parsed.data.email };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
@@ -115,6 +140,10 @@ export async function requestPasswordReset(_prev: FormState, formData: FormData)
   if (!isAuthEnabled()) return { ...DEMO, email: emailOf(formData) };
   const parsed = resetRequestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { status: 'error', fields: fieldErrors(parsed.error), email: emailOf(formData) };
+
+  // O limite vale para qualquer e-mail, cadastrado ou não: a mensagem não revela nada
+  const limited = tooManyAttempts([[AUTH_RULES.resetPerIp, await clientIp()], [AUTH_RULES.resetPerEmail, parsed.data.email]]);
+  if (limited) return { status: 'error', message: limited, email: parsed.data.email };
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {

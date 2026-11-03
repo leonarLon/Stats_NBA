@@ -28,7 +28,7 @@ A fonte gratuita (API-NBA) às vezes entrega o box score de jogadores **incomple
 | Classificação | Quando | O que acontece |
 |---|---|---|
 | `complete` | Linhas válidas, Σ `pts` dos jogadores = placar e Σ minutos ≈ 240 + 25·n_prorrogações | Entra em todos os agregados |
-| `partial` | Linhas válidas, mas Σ `pts` **abaixo** do placar, Σ minutos **abaixo** do esperado, ou um time sem linhas | Linhas gravadas e usadas nos agregados; jogo e temporadas afetadas marcados como incompletos; nova tentativa após 24h, 72h e 7 dias |
+| `partial` | Linhas válidas, mas Σ `pts` **abaixo** do placar, Σ minutos **abaixo** do esperado, ou um time sem linhas | Linhas gravadas e usadas nos agregados; jogo e temporadas afetadas marcados como incompletos; nova tentativa 6h e 18h após o fim do jogo |
 | `invalid` | Alguma linha falha nas regras acima, jogador repetido, jogador de outro time, ou Σ `pts`/minutos **acima** do total | Nada do jogo entra nos agregados; alerta em `sync_logs` |
 
 **Tolerância de minutos:** a API-NBA informa minutos inteiros, então cada linha pode errar até 30 s. Tolerância = máx(60 s, nº de linhas do time × 30 s).
@@ -86,3 +86,4 @@ Diferença entre a média dos últimos N jogos (padrão 10) e a média da tempor
 - Enquanto a temporada estiver em andamento, as médias são exibidas como "parciais, até <data>".
 - Se houver jogos do time ainda com `stats_status` diferente de `complete`, `player_season_stats.is_complete = false` e a interface mostra o aviso "faltam N jogos para processar".
 - `player_season_stats.team_partial_games` conta os jogos do time do jogador com box score incompleto na fonte. A página do jogador mostra: "N jogos do time têm box score incompleto na fonte; os totais deste jogador podem estar abaixo do real". As **médias por jogo** continuam corretas para os jogos em que o jogador aparece.
+- **Jogos sem box score** (a fonte gratuita só libera ontem, hoje e amanhã): entram na classificação e nos resultados, mas não nas médias. Em 2026-27, as médias começam em 02/11/2026. A campanha (V-D) dos times vem sempre da classificação; a coluna "J" das médias conta só os jogos com box score.

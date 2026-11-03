@@ -167,7 +167,14 @@ async function loadTeamSeasons() {
   const r = reader();
   const { season, teams } = await seasonContext(r);
   if (!season) return null;
-  return { season: season.label, rows: buildTeamSeasonRows(await r.teamSeasons(season.id, SEASON_TYPE), teams) };
+  const [teamSeasons, standings] = await Promise.all([r.teamSeasons(season.id, SEASON_TYPE), r.standings(season.id)]);
+  // Campanha (V-D) vem da classificação, que conta todos os jogos; as médias, só dos jogos com box score
+  const records = new Map(standings.map((s) => [s.team_id, s]));
+  const rows = buildTeamSeasonRows(teamSeasons, teams).map((row) => {
+    const st = records.get(row.team.id);
+    return st ? { ...row, wins: st.wins, losses: st.losses } : row;
+  });
+  return { season: season.label, rows };
 }
 
 export async function getTeamSeasons() {
