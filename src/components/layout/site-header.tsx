@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { Logo } from '@/components/brand/logo';
 
 const NAV = [
-  { href: '/#recursos', label: 'Recursos' },
-  { href: '/#dados', label: 'Como calculamos' },
+  { href: '/jogos', label: 'Jogos' },
+  { href: '/classificacao', label: 'Classificação' },
+  { href: '/jogadores', label: 'Jogadores' },
+  { href: '/times', label: 'Times' },
   { href: '/#planos', label: 'Planos' },
 ];
 

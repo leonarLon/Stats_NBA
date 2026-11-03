@@ -54,21 +54,20 @@
 ```
 src/
   app/                    # rotas Next.js (somente UI e composição)
-    (public)/             # landing, planos, login, cadastro
-    (app)/                # área restrita (layout verifica acesso no servidor)
-    api/                  # route handlers (billing, webhooks, revalidação)
+    page.tsx              # landing (pública)
+    (stats)/              # jogos, classificacao, jogadores, times (acesso verificado nas consultas)
+    api/                  # route handlers (revalidate; billing e webhooks na Fase 6)
   components/             # componentes visuais, sem regra de negócio
   server/                 # tudo que roda só no servidor
     domain/               # tipos e regras puras (fórmulas, validações)
-    services/             # casos de uso (players, teams, games, rankings, compare, highlights)
-    repositories/         # acesso ao Postgres
+    stats/                # leitura das estatísticas: leitores (Supabase/fictício), cálculos e consultas com cache
     providers/            # contratos e adaptadores (api-nba, balldontlie, fixture)
     ingestion/            # pipeline de sincronização
     billing/              # contrato PaymentGateway + adaptador Mercado Pago
     auth/                 # sessão, requireUser, requireAccess
     lib/                  # http client, erros, logger, config (env validado)
 scripts/                  # entradas do worker (ingest, backfill, recompute)
-supabase/migrations/      # SQL para revisão (não executado)
+supabase/migrations/      # SQL aplicado no Supabase (mudanças sempre em migration nova)
 tests/                    # fixtures, unit, integration, db, e2e
 ```
 
@@ -79,7 +78,7 @@ tests/                    # fixtures, unit, integration, db, e2e
 | Módulo | Faz | Não faz |
 |---|---|---|
 | `domain` | Fórmulas, validações, tipos | I/O |
-| `services` | Consultas estatísticas determinísticas, rankings, comparações, destaques da rodada | Saber quem é o provedor |
+| `stats` | Ler o banco, montar os modelos de tela com as fórmulas de `domain`, verificar acesso e cachear (`queries.ts`) | Gravar no banco |
 | `providers` | Falar com APIs externas, respeitar limites por minuto e converter para tipos de domínio | Gravar no banco |
 | `ingestion` | Orquestrar status → box score → validação → gravação → agregados | Expor HTTP |
 | `billing` | Checkout, cancelamento, verificação de webhook, máquina de estados da assinatura | Decidir acesso a dados (isso é `auth`) |
@@ -155,7 +154,7 @@ Médias por jogo são **views** (`player_season_averages`, `team_season_averages
 | `subscriptions`, `payment_transactions` | Próprio usuário | Somente service role (servidor) |
 | `payment_events`, `sync_*`, `external_refs`, `audit_logs`, `provider_quota_usage`, `game_sync_state`, `data_providers` | Ninguém (só service role) | Somente service role |
 
-A aplicação **não** depende só do RLS: todas as rotas restritas chamam `requireAccess()` no servidor antes de consultar. O RLS é a segunda barreira, caso alguém use a chave anon diretamente.
+A aplicação **não** depende só do RLS: as consultas de estatística (`src/server/stats/queries.ts`) chamam `requireAccess()` no servidor antes de ler. Como os números são iguais para todos os usuários, a leitura em si usa a chave secreta dentro de um cache compartilhado (`'use cache'`), e as funções que leem não são exportadas: nada chega a elas sem passar pela verificação. O RLS protege o acesso direto ao banco com a chave publicável.
 
 ## 7. Autenticação
 
@@ -212,7 +211,7 @@ Tudo será testado no **ambiente de testes (sandbox)** do Mercado Pago, sem dinh
 
 | O quê | Como | Invalidação |
 |---|---|---|
-| Páginas de estatística | `'use cache'` + `cacheLife('minutes')` + `cacheTag` (`season:2026`, `player:123`) nas funções de consulta | `revalidateTag(tag, 'max')` via `/api/revalidate`, chamado pelo worker após a ingestão |
+| Páginas de estatística | `'use cache'` + `cacheLife('minutes')` + `cacheTag('stats')` nas funções internas de `stats/queries.ts`. A página entrega a casca estática na hora e o conteúdo chega por streaming, dentro de `<Suspense>` | `revalidateTag('stats', 'max')` via `/api/revalidate` (Bearer `REVALIDATE_SECRET`), chamado pelo worker quando grava algo novo. Sem o aviso, o `cacheLife` atualiza em minutos |
 | Rankings e líderes | Lidos de tabelas de totais já agregadas | Recalculadas na ingestão |
 
 ## 10. Segurança
@@ -248,3 +247,5 @@ Tudo será testado no **ambiente de testes (sandbox)** do Mercado Pago, sem dinh
 
 | 8 | Teste grátis de 3 dias mantido mesmo sem cobrança | Liberar acesso a qualquer cadastrado | Decisão do usuário (03/11/2026): o teste é funcionalidade do produto e serve para demonstrações a interessados no projeto |
 | 9 | Box scores incompletos gravados como `partial` | Descartar jogos incompletos; medir antes de decidir | Decisão do usuário (03/11/2026) após teste real mostrar jogadores faltando na API-NBA gratuita |
+| 10 | Estatísticas lidas com a chave secreta em cache compartilhado, depois de `requireAccess()` | Ler com a sessão do usuário (RLS) a cada visita | Os dados são iguais para todos; um cache por usuário multiplicaria as consultas ao banco gratuito. Segue o padrão de camada de acesso a dados da documentação do Next.js |
+| 11 | Modo demonstração com dados fictícios quando o Supabase não está configurado | Exigir credenciais para rodar o site | Desenvolvimento e testes E2E sem banco nem login; os dados são inventados e a página avisa |

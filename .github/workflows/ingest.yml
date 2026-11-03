@@ -39,6 +39,9 @@ jobs:
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       APISPORTS_KEY: ${{ secrets.APISPORTS_KEY }}
       BALLDONTLIE_KEY: ${{ secrets.BALLDONTLIE_KEY }}
+      # Opcionais: depois do deploy, avisam o site para atualizar as páginas (/api/revalidate)
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -13,7 +13,7 @@ Estatísticas de jogadores, times e partidas da NBA em português, atualizadas a
 | Fundação (config, erros, logs, cliente HTTP com limite por minuto, fórmulas, validações, contratos) | Implementada e testada |
 | Landing page e design system | Implementados |
 | Ingestão de dados reais | Implementada; migration 0004 aplicada e primeira ingestão real feita em 03/11/2026. Falta cadastrar os secrets no GitHub para o agendamento |
-| Páginas de estatística | Pendente (Fase 5) |
+| Páginas de estatística | Jogos, box score, classificação, jogadores (ranking e busca), jogador, times e time. Exigem login com acesso ativo (Fase 6); sem Supabase, abrem em modo demonstração |
 | Cadastro, login e teste grátis | Pendente (Fase 6) |
 | Cobrança (Mercado Pago) | Preparada como contrato; desligada |
 
@@ -34,7 +34,7 @@ cp .env.example .env.local   # no Windows: copy .env.example .env.local
 npm run dev                  # http://localhost:3000
 ```
 
-Sem nenhuma variável preenchida, o site sobe normalmente e usa dados fictícios (`DATA_PROVIDER_MODE=fixture`).
+Sem as variáveis do Supabase, o site sobe em **modo demonstração**: as páginas de estatística mostram times e jogadores fictícios, com aviso na tela e sem exigir login. Com o Supabase configurado, elas mostram os dados reais e exigem login com teste ou assinatura ativa.
 
 ## Variáveis de ambiente
 
@@ -53,13 +53,24 @@ Todas estão documentadas em [.env.example](.env.example). Regras:
 | `npm run lint` | ESLint |
 | `npm run typecheck` | Gera os tipos de rota do Next e roda o TypeScript |
 | `npm test` | Testes unitários e de banco (Vitest + PGlite) |
-| `npm run test:e2e` | Testes E2E em 390, 768 e 1440 px (Playwright + axe). Na primeira vez: `npx playwright install chromium` |
+| `npm run test:e2e` | Testes E2E em 390, 768 e 1440 px (Playwright + axe), sempre em modo demonstração. Na primeira vez: `npx playwright install chromium` |
 | `npm run check` | lint + typecheck + testes |
 | `npm run ingest:local -- schedule` | Calendário de ontem até +7 dias (exige `DATA_PROVIDER_MODE=live`) |
 | `npm run ingest:local -- tick` | Status dos jogos + box scores pendentes |
 | `npm run ingest:local -- backfill AAAA-MM-DD AAAA-MM-DD` | Carga histórica; continua de onde parou a cada execução |
 
 Os testes não usam rede nem credenciais: o banco roda em memória (PGlite) e os dados esportivos vêm do `FixtureProvider`.
+
+## Páginas
+
+| Rota | Conteúdo |
+|---|---|
+| `/jogos?data=AAAA-MM-DD` | Jogos do dia (data dos EUA), placar e situação do box score |
+| `/jogos/[id]` | Box score com totais e aproveitamento dos times |
+| `/classificacao` | Leste e Oeste, com casa/fora, últimos 10 e sequência |
+| `/jogadores?ordem=pts&q=nome&todos=1` | Ranking por estatística, busca sem acento, filtro de qualificados |
+| `/jogadores/[id]` | Médias da temporada e jogo a jogo |
+| `/times` e `/times/[sigla]` | Médias e ratings; elenco, últimos e próximos jogos |
 
 ## Deploy
 
@@ -78,6 +89,8 @@ As migrations em `supabase/migrations/` já foram aplicadas. Arquivos aplicados 
 ## Limitações conhecidas
 
 - Atualização 15 a 45 minutos após o fim do jogo (não é tempo real).
+- A fonte gratuita não informa quem foi titular, então essa informação não aparece.
+- Com a pasta do projeto no OneDrive, a pasta `.next` às vezes fica bloqueada e o build falha com `EPERM`. Basta apagar `.next` e rodar de novo.
 - Cota gratuita da API-NBA (100 requisições/dia) limita a carga de temporadas antigas (~20 dias por temporada).
 - Estatísticas avançadas são estimativas a partir do box score.
 - O balldontlie não publica termos de uso; ele é usado só para status e placares, e o sistema funciona sem ele.

@@ -10,6 +10,7 @@
  */
 import { createPipelineDeps } from '../src/server/ingestion/factory';
 import { runBackfillJob, runScheduleJob, runTickJob } from '../src/server/ingestion/pipeline';
+import { revalidateSite } from '../src/server/ingestion/revalidate-site';
 import { isSupabaseConfigured } from '../src/server/lib/config';
 import { logger } from '../src/server/lib/logger';
 
@@ -30,26 +31,34 @@ async function main() {
   }
 
   const deps = createPipelineDeps();
+  let changed = false;
 
   switch (command) {
-    case 'schedule':
-      await runScheduleJob(deps, trigger);
+    case 'schedule': {
+      // Calendário e placares podem mudar a classificação e a página de jogos
+      const { status } = await runScheduleJob(deps, trigger);
+      changed = status !== 'skipped';
       break;
-    case 'tick':
-      await runTickJob(deps, trigger);
+    }
+    case 'tick': {
+      const { result } = await runTickJob(deps, trigger);
+      changed = (result?.changed ?? 0) > 0 || (result?.newlyFinal ?? 0) > 0;
       break;
+    }
     case 'backfill': {
       const [from, to] = args;
       if (!DATE.test(from ?? '') || !DATE.test(to ?? '') || from > to) {
         throw new Error('uso: backfill AAAA-MM-DD AAAA-MM-DD');
       }
-      await runBackfillJob(deps, { from, to }, 40, trigger);
+      const { result } = await runBackfillJob(deps, { from, to }, 40, trigger);
+      changed = (result?.changed ?? 0) > 0 || (result?.scheduleGames ?? 0) > 0;
       break;
     }
     default:
       throw new Error(`comando desconhecido: ${command ?? '(vazio)'}. Use schedule, tick ou backfill.`);
   }
   logger.info('requisições externas', deps.metrics?.requests ?? {});
+  if (changed && (await revalidateSite(logger))) logger.info('site avisado para atualizar as páginas');
 }
 
 main().catch((error) => {

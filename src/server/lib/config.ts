@@ -11,6 +11,10 @@ const bool = z
   .default('false')
   .transform((v) => v === 'true');
 
+/** Vazio conta como ausente (secret não cadastrado no GitHub Actions chega como ""). */
+const emptyAsUndefined = (v: unknown) => (v === '' ? undefined : v);
+const optionalSecret = z.preprocess(emptyAsUndefined, z.string().min(16).optional());
+
 const supabasePublicSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(20),
@@ -38,8 +42,8 @@ const billingSchema = z.object({
 });
 
 const appSchema = z.object({
-  NEXT_PUBLIC_SITE_URL: z.url().default('http://localhost:3000'),
-  REVALIDATE_SECRET: z.string().min(16).optional(),
+  NEXT_PUBLIC_SITE_URL: z.preprocess(emptyAsUndefined, z.url().default('http://localhost:3000')),
+  REVALIDATE_SECRET: optionalSecret,
   TRIAL_DAYS: z.coerce.number().int().min(1).max(30).default(3),
 });
 

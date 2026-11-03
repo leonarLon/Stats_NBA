@@ -24,5 +24,8 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
+    // Modo demonstração (dados fictícios), mesmo com .env.local preenchido: o Next não
+    // sobrescreve variáveis que já existem, ainda que vazias. Os testes nunca leem o banco real.
+    env: { NEXT_PUBLIC_SUPABASE_URL: '', NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: '', SUPABASE_SECRET_KEY: '', REVALIDATE_SECRET: '' },
   },
 });
