@@ -26,6 +26,8 @@ export interface PipelineDeps {
 export const RECONCILE_DELAYS_HOURS = [24, 72, 168] as const;
 /** Espera entre tentativas após falha de rede/fonte. */
 export const RETRY_BACKOFF_MINUTES = [15, 30, 60, 120, 360] as const;
+/** Teto da fila lida do banco a cada execução (uma temporada inteira tem ~1.300 jogos). */
+const DUE_QUEUE_LIMIT = 1500;
 /** Desiste de buscar o box score se a fonte falhar por mais que isso após o fim do jogo. */
 export const GIVE_UP_AFTER_HOURS = 72;
 /** Jogo é considerado "provavelmente encerrado" após este tempo do início. */
@@ -241,7 +243,11 @@ export interface IngestDueResult {
 
 /** Processa os jogos encerrados pendentes, respeitando a cota. Recalcula os agregados afetados no fim. */
 export async function ingestDueGames(deps: PipelineDeps, jobId: string | null, maxGames = 20): Promise<IngestDueResult> {
-  const due = await deps.store.dueGames(nowOf(deps), deps.box.slug, maxGames);
+  // Mais recentes primeiro: com a carga histórica na fila, os jogos da noite não podem esperar
+  // dias pela cota. O banco devolve em ordem cronológica, então a fila é lida inteira e reordenada.
+  const due = (await deps.store.dueGames(nowOf(deps), deps.box.slug, DUE_QUEUE_LIMIT))
+    .sort((a, b) => (b.starts_at ?? '').localeCompare(a.starts_at ?? '') || b.game_id - a.game_id)
+    .slice(0, maxGames);
   const cache = new Map<string, ProviderGame[]>();
   const affected = new Map<string, { seasonId: number; seasonType: SeasonType; players: Set<number>; teams: Set<number> }>();
   const result: IngestDueResult = { due: due.length, processed: 0, failed: 0, changed: 0, byStatus: { complete: 0, partial: 0, invalid: 0 }, stoppedForQuota: false };

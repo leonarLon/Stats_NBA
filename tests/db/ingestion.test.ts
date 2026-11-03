@@ -285,6 +285,23 @@ describe('carga histórica', () => {
       'listGames:2026-11-04:2026-11-05',
     ]);
   });
+
+  it('com a fila cheia, processa primeiro os jogos mais recentes', async () => {
+    // Um jogo mais antigo, também encerrado, com o mesmo box score fictício
+    fixture.data.games.push({ ...FIXTURE_GAMES[0], externalId: 'fx-g0', gameDate: '2026-10-21', startsAt: '2026-10-21T23:30:00Z' });
+    fixture.data.boxScores['fx-g0'] = FIXTURE_BOX_SCORES['fx-g1'].map((l) => ({ ...l }));
+
+    const res = await runBackfillJob(deps, { from: '2026-10-21', to: '2026-10-28' }, 1);
+    expect(res.result).toMatchObject({ due: 1, processed: 1 });
+    expect(await q(`select game_date::text, stats_status from games where status = 'final' order by game_date`)).toEqual([
+      { game_date: '2026-10-21', stats_status: 'pending' },
+      { game_date: '2026-10-28', stats_status: 'complete' },
+    ]);
+
+    // Na execução seguinte, o mais antigo
+    await runBackfillJob(deps, { from: '2026-10-21', to: '2026-10-28' }, 1);
+    expect((await one<{ n: number }>(`select count(*)::int as n from games where stats_status = 'complete'`)).n).toBe(2);
+  });
 });
 
 describe('permissões', () => {
