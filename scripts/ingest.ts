@@ -42,7 +42,7 @@ async function main() {
     }
     case 'tick': {
       const { result } = await runTickJob(deps, trigger);
-      changed = (result?.changed ?? 0) > 0 || (result?.newlyFinal ?? 0) > 0;
+      changed = (result?.changed ?? 0) > 0 || (result?.newlyFinal ?? 0) > 0 || (result?.unavailable ?? 0) > 0;
       break;
     }
     case 'backfill': {
